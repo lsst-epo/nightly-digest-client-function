@@ -67,5 +67,3 @@ To generate a code coverage report:
 yarn run test -- --coverage
 ```
 
-## Notes
-API keys need to be refreshed every year.
