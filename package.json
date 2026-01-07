@@ -1,0 +1,27 @@
+{
+  "name": "nightlydigest-client-function",
+  "version": "1.0.0",
+  "description": "cloud function for the nightly digest api",
+  "main": "dist/index.js",
+  "repository": "https://github.com/lsst-epo/nightlydigest-client-function.git",
+  "author": "Kevin Wong <kevin.wong@noirlab.edu>",
+  "license": "MIT",
+  "scripts": {
+    "build": "tsc",
+    "start": "functions-framework --target=index",
+    "start-dev": "npx @google-cloud/functions-framework --target=nightlydigest-stats --source=dist/index.js --verbose",
+    "prestart": "npm run build",
+    "gcp-build": "npm run build",
+    "test": "jest"
+  },
+  "private": true,
+  "dependencies": {
+    "@google-cloud/functions-framework": "^5.0.0",
+    "@google-cloud/logging": "^11.2.1",
+    "axios": "^1.13.2",
+    "dotenv": "^17.2.3"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3"
+  }
+}
