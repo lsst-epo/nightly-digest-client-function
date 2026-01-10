@@ -62,7 +62,7 @@ export async function fetchNightlyDigestData<T>(endpoint: string, startDate: str
 
 
 export async function processStats(req: ff.Request, res: ff.Response, cloudEndpoint: string, cacheEndpoint: string) {
-    const mode = req.query?.mode || 'current';
+    const mode = req.query?.mode || 'current'; // probably don't need this right now, but could be useful in the future if we want to expand beyond just getting current
     const startDate = req.query?.startDate as string
     const endDate = req.query?.endDate as string 
     let data = await fetchNightlyDigestData<NightlyDigestBaseResponse>(cloudEndpoint, startDate, endDate);
@@ -72,8 +72,8 @@ export async function processStats(req: ff.Request, res: ff.Response, cloudEndpo
     const lastExposure = currentData.last_exposure;
 
     let cleaned_result = {
-        dome_open: currentData.last_can_see_sky || null,
-        exposure_count: currentData.exposures_count || null
+        dome_open: currentData.last_can_see_sky ?? null,
+        exposure_count: currentData.exposures_count ?? null
     }
 
     await cacheResult(cloudEndpoint, cacheEndpoint, mode, cleaned_result); 

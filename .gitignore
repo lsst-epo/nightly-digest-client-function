@@ -3,3 +3,6 @@ node_modules
 dist
 .env.yaml
 coverage
+# stryker temp files
+.stryker-tmp
+reports
