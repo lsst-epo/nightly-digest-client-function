@@ -2,12 +2,10 @@ import {
     nightlyDigestStatsHandler, 
     processStats, 
     extractCurrent, 
-    cacheResult,
     fetchNightlyDigestData,
     getConfig,
 } from './index';
-import { NightlyDigestExposure, NightlyDigestBaseResponse } from './types';
-import {jest, test} from '@jest/globals';
+import {jest} from '@jest/globals';
 import {mockedResponseSuccess} from './mockData';
 import * as ff from '@google-cloud/functions-framework';
 import axios from 'axios';

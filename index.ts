@@ -1,7 +1,7 @@
 import 'dotenv/config'
 import * as ff from '@google-cloud/functions-framework';
 import axios from "axios";
-import { NightlyDigestExposure, NightlyDigestBaseResponse } from './types';
+import { NightlyDigestBaseResponse } from './types';
 
 export const getConfig = () => {
     return {
