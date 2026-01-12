@@ -29,11 +29,10 @@ jobs:
           node-version: '24'
       - name: Install Dependencies
         run: yarn
+      - name: Load sample .env
+        run: cp .env.sample .env
       - name: Run tests
         run: yarn test
-        env:
-          ND_API_ENDPOINT: blah
-          ND_CACHE_ENDPOINT: blah
       - name: Parse deployment info
         if: github.ref == 'refs/heads/main' 
         id: deploy-info
