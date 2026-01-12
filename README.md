@@ -66,4 +66,12 @@ To generate a code coverage report:
 ```
 yarn run test -- --coverage
 ```
+with HTML output sent to `coverage/lcov-report/index.html`
+
+To run mutation tests
+```
+yarn run mutate
+```
+with HTML output sent to `reports/mutation/mutation.html`
+
 

@@ -12,7 +12,8 @@
     "start-dev": "npx @google-cloud/functions-framework --target=nightlydigest-stats --source=dist/index.js --verbose",
     "prestart": "npm run build",
     "gcp-build": "npm run build",
-    "test": "jest"
+    "test": "jest",
+    "mutate": "npx stryker run"
   },
   "private": true,
   "dependencies": {
@@ -22,6 +23,11 @@
     "dotenv": "^17.2.3"
   },
   "devDependencies": {
+    "@stryker-mutator/core": "^9.4.0",
+    "@stryker-mutator/jest-runner": "^9.4.0",
+    "@types/jest": "^30.0.0",
+    "jest": "^30.2.0",
+    "ts-jest": "^29.4.6",
     "typescript": "^5.9.3"
   }
 }
