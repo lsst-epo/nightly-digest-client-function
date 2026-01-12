@@ -32,12 +32,15 @@ describe('Nightly Digest stats', () => {
     const ENV = process.env;
     let API_ENDPOINT: string;
     let CACHE_ENDPOINT: string;
+    let REDIS_BEARER_TOKEN: string;
     beforeEach(() => {
         jest.useFakeTimers().setSystemTime(new Date("2026-01-07 01:30"));
         process.env = ENV;
+        
         let config = getConfig();
         API_ENDPOINT = config.endpoints.API_ENDPOINT!;
         CACHE_ENDPOINT = config.endpoints.CACHE_ENDPOINT!;
+        REDIS_BEARER_TOKEN = config.tokens.REDIS_TOKEN;
         jest.clearAllMocks();
     })
     afterEach(() => {
