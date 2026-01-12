@@ -65,8 +65,12 @@ jobs:
         if: github.ref == 'refs/heads/main'
         id: deploy-secrets
         run: |
-          # The secret value must be a  YAML string.
-          SECRET_YAML=$(gcloud secrets versions access latest --secret=${{ steps.deploy-info.outputs.secret_key_name }})
+          # Get appropriate secret name
+          SECRET_NAME=$(gcloud secrets list --filter="labels.deployment:nightly-digest-client-function" --format="value(name)")
+
+          # The secret value must be a YAML string.
+          SECRET_YAML=$(gcloud secrets versions access latest --secret="$SECRET_NAME")
+
           # Write YAML file to .env.yaml
           echo "$SECRET_YAML" > .env.yaml
       - name: Deploy to Google Cloud functions
