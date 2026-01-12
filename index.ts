@@ -1,18 +1,21 @@
 import 'dotenv/config'
 import * as ff from '@google-cloud/functions-framework';
 import axios from "axios";
-import { NightlyDigestBaseResponse } from './types';
+import { NightlyDigestExposure, NightlyDigestBaseResponse } from './types';
+import { NextFunction } from 'express';
 
 export const getConfig = () => {
     return {
         endpoints: {
             API_ENDPOINT: process.env.ND_API_ENDPOINT,
             CACHE_ENDPOINT: process.env.ND_CACHE_ENDPOINT
-        }
+        },
+        REDIS_BEARER_TOKEN: process.env.REDIS_BEARER_TOKEN
     };
 };
 
 const { API_ENDPOINT, CACHE_ENDPOINT } = getConfig().endpoints;
+const REDIS_BEARER_TOKEN  = getConfig().REDIS_BEARER_TOKEN;
 
 export async function cacheResult(endpoint: string, cache_endpoint: string, params: any, data: any) {
     try {
@@ -80,11 +83,32 @@ export async function processStats(req: ff.Request, res: ff.Response, cloudEndpo
     res.json(cleaned_result)
 }
 
+
+export function bearerAuth(req: ff.Request, res: ff.Response, next: NextFunction) {
+    const authHeader = req.headers.authorization;
+    if (!authHeader?.startsWith('Bearer ')) {
+        return res.status(401).json({error: "Unauthorized: Missing Bearer Token"});
+    }
+
+    const token = authHeader.split(' ')[1];
+
+    if (token !== REDIS_BEARER_TOKEN as string) {
+        return res.status(401).json({error: "Unauthorized: Invalid Token"});
+    }
+
+    next();
+}
+
 export async function nightlyDigestStatsHandler (req: ff.Request, res: ff.Response) {
     if (req.path == "/") {
         return res.status(200).send("🐈‍⬛"); 
     } else if (req.path == "/nightlydigest-stats") {
-        return processStats(req, res, API_ENDPOINT as string, CACHE_ENDPOINT as string);
+        bearerAuth(
+            req,
+            res, 
+            async () => {
+                processStats(req, res, API_ENDPOINT as string, CACHE_ENDPOINT as string)
+            });
     } else {
         return res.status(400).send("Oopsies.");
     }
