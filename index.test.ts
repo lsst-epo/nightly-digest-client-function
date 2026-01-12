@@ -8,6 +8,7 @@ import {
 } from './index';
 import { NightlyDigestExposure, NightlyDigestBaseResponse } from './types';
 import {jest, test} from '@jest/globals';
+import {mockedResponseSuccess} from './mockData';
 import * as ff from '@google-cloud/functions-framework';
 import axios from 'axios';
 import 'dotenv/config';
@@ -15,68 +16,6 @@ import 'dotenv/config';
 jest.mock('axios'); // mock axios globally at top level to prevent accidental network calls
 
 const mockedAxios = axios as jest.Mocked<typeof axios>
-
-// data fudged
-const mockedResponseSuccess = {
-    "exposures": [
-        {
-            "exposure_id": 2026010600002,
-            "exposure_name": "blah",
-            "exp_time": 5.0,
-            "img_type": "dark",
-            "observation_reason": "blah",
-            "science_program": "BLOCK-blah",
-            "target_name": "blah",
-            "can_see_sky": false,
-            "band": "y",
-            "obs_start": "2026-01-06T20:07:11.814000",
-            "physical_filter": "y_00001",
-            "day_obs": 20260106,
-            "seq_num": 2,
-            "obs_end": "2026-01-06T20:07:16.830000",
-            "overhead": 0.0,
-            "zero_point_median": null,
-            "visit_id": 1000001,
-            "pixel_scale_median": null,
-            "psf_sigma_median": null,
-            "visit_gap": 0.0
-        },
-        {
-            "exposure_id": 2026010600003,
-            "exposure_name": "blah",
-            "exp_time": 5.0,
-            "img_type": "dark",
-            "observation_reason": "blah",
-            "science_program": "BLOCK-blah",
-            "target_name": "blah",
-            "can_see_sky": false,
-            "band": "y",
-            "obs_start": "2026-01-06T20:07:20.427000",
-            "physical_filter": "y_00001",
-            "day_obs": 20260106,
-            "seq_num": 3,
-            "obs_end": "2026-01-06T20:07:25.441000",
-            "overhead": 3.00001,
-            "zero_point_median": null,
-            "visit_id": 1000002,
-            "pixel_scale_median": null,
-            "psf_sigma_median": null,
-            "visit_gap": 3.00001
-        }
-    ],
-    "exposures_count": 95,
-    "sum_exposure_time": 2630.0,
-    "on_sky_exposures_count": 89,
-    "total_on_sky_exposure_time": 2600.0,
-    "open_dome_times": [
-        {
-            "day_obs": 20260106,
-            "open_time": "2026-01-07T00:13:55.615083",
-            "close_time": "2026-01-07T03:47:13.284578",
-            "open_hours": 3.00001
-        }
-    ]
-}
 
 const req = {
     query: {
@@ -93,30 +32,19 @@ const res = {
 
 describe('Nightly Digest stats', () => {
     const ENV = process.env;
+    // const config = getConfig();
+    let API_ENDPOINT: string;
+    let CACHE_ENDPOINT: string;
     beforeEach(() => {
         jest.useFakeTimers().setSystemTime(new Date("2026-01-07 01:30"));
         process.env = ENV;
+        // const { API_ENDPOINT, CACHE_ENDPOINT } = getConfig().endpoints;
+        API_ENDPOINT = getConfig().endpoints.API_ENDPOINT!;
+        CACHE_ENDPOINT = getConfig().endpoints.CACHE_ENDPOINT!;
         jest.clearAllMocks();
     })
     afterEach(() => {
         jest.useRealTimers();
-    })
-
-    describe('env variables', () => {
-        it('should use correct defaults', () => {
-            delete process.env.ND_CF_ENDPOINT;
-            delete process.env.ND_CACHE_ENDPOINT;
-            const config = getConfig();
-
-            expect(config.endpoints.CF_ENDPOINT).toBe(
-                "https://usdf-rsp-dev.slac.stanford.edu/nightlydigest/api/exposures"
-            );
-
-            expect(config.endpoints.CACHE_ENDPOINT).toBe(
-                "https://us-west1-skyviewer.cloudfunctions.net/redis-client/nightly-digest-stats"
-            );
-        })
-
     })
 
     describe('fetchNightlyDigestData()', () => {
@@ -124,7 +52,7 @@ describe('Nightly Digest stats', () => {
             const mockError = new Error('Error');
             mockedAxios.get.mockRejectedValueOnce(mockError);
 
-            await expect(fetchNightlyDigestData("https://usdf-rsp-dev.slac.stanford.edu/nightlydigest/api/exposures", '20260106', '20260107')).rejects.toThrow('Error');
+            await expect(fetchNightlyDigestData(API_ENDPOINT as string, '20260106', '20260107')).rejects.toThrow('Error');
         });
 
         it('should use default value for startDate and endDate', async () => {
@@ -132,7 +60,7 @@ describe('Nightly Digest stats', () => {
                 data: {"success": true}
             })
 
-            await fetchNightlyDigestData("https://usdf-rsp-dev.slac.stanford.edu/nightlydigest/api/exposures", '20260106', '20260107');
+            await fetchNightlyDigestData(API_ENDPOINT as string, '20260106', '20260107');
             expect(mockedAxios.get).toHaveBeenCalledWith(
                 expect.any(String),
                 expect.objectContaining({
@@ -215,7 +143,7 @@ describe('Nightly Digest stats', () => {
             
             // suppress output during test and verify it was called
             const consoleSpy = jest.spyOn(console, 'warn').mockImplementation(()=>{});
-            await expect(processStats(req, res, '"https://usdf-rsp-dev.slac.stanford.edu/nightlydigest/api/exposures', 'https://us-west1-skyviewer.cloudfunctions.net/redis-client/nightly-digest-stats'))
+            await expect(processStats(req, res, API_ENDPOINT as string, CACHE_ENDPOINT as string))
                 .resolves.not.toThrow();
 
             expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining("Cache upload error: Cache Down"));
@@ -273,7 +201,7 @@ describe('Nightly Digest stats', () => {
             mockedAxios.get.mockResolvedValueOnce({ data: mockedResponseSuccess });
             mockedAxios.post.mockResolvedValueOnce({ status: 200 }) // for redis cache
 
-            const result = await processStats(req, res, "https://usdf-rsp-dev.slac.stanford.edu/nightlydigest/api/exposures", "https://us-west1-skyviewer.cloudfunctions.net/redis-client/nightly-digest-stats");
+            const result = await processStats(req, res, API_ENDPOINT as string, CACHE_ENDPOINT as string);
 
             expect(res.json).toHaveBeenCalled();
         })
@@ -285,7 +213,7 @@ describe('Nightly Digest stats', () => {
                 query: {mode: "full_history"}
             } as unknown as ff.Request;
 
-            const result = await processStats(req, res, "https://usdf-rsp-dev.slac.stanford.edu/nightlydigest/api/exposures", "https://us-west1-skyviewer.cloudfunctions.net/redis-client/nightly-digest-stats");
+            const result = await processStats(req, res, API_ENDPOINT as string, CACHE_ENDPOINT as string);
 
             expect(res.json).toHaveBeenCalled();
         })
@@ -297,7 +225,7 @@ describe('Nightly Digest stats', () => {
             const req = { query: {} } as unknown as ff.Request;
             const res = { json: jest.fn() } as unknown as ff.Response;
     
-            const result = await processStats(req, res, "https://usdf-rsp-dev.slac.stanford.edu/nightlydigest/api/exposures", "https://us-west1-skyviewer.cloudfunctions.net/redis-client/nightly-digest-stats");
+            const result = await processStats(req, res, API_ENDPOINT as string, CACHE_ENDPOINT as string);
     
             expect(mockedAxios.post).toHaveBeenCalledWith(
                 expect.any(String),
@@ -315,7 +243,7 @@ describe('Nightly Digest stats', () => {
     
             
             await expect(
-                processStats(req, res, "https://usdf-rsp-dev.slac.stanford.edu/nightlydigest/api/exposures", "https://us-west1-skyviewer.cloudfunctions.net/redis-client/nightly-digest-stats")
+                processStats(req, res, API_ENDPOINT as string, CACHE_ENDPOINT as string)
             ).resolves.not.toThrow(); // don't throw an error because of the ?. operator
         
             expect(mockedAxios.post).toHaveBeenCalledWith(
@@ -331,7 +259,7 @@ describe('Nightly Digest stats', () => {
             const req = { query: { mode: 'full_history' } } as any;
             const res = { json: jest.fn() } as any;
         
-            const result = await processStats(req, res, "https://usdf-rsp-dev.slac.stanford.edu/nightlydigest/api/exposures", "https://us-west1-skyviewer.cloudfunctions.net/redis-client/nightly-digest-stats");
+            const result = await processStats(req, res, API_ENDPOINT as string, CACHE_ENDPOINT as string);
         
             expect(mockedAxios.post).toHaveBeenCalledWith(
                 expect.any(String),
@@ -350,7 +278,7 @@ describe('Nightly Digest stats', () => {
             const req = { query: { mode: 'current' } } as unknown as ff.Request;
             const res = { json: jest.fn() } as unknown as ff.Response;
     
-            const result = await processStats(req, res, "https://usdf-rsp-dev.slac.stanford.edu/nightlydigest/api/exposures", "https://us-west1-skyviewer.cloudfunctions.net/redis-client/nightly-digest-stats");
+            const result = await processStats(req, res, API_ENDPOINT as string, CACHE_ENDPOINT as string);
     
             
             expect(res.json).toHaveBeenCalledWith({
@@ -371,8 +299,7 @@ describe('Nightly Digest stats', () => {
             const req = { query: { mode: 'current' } } as unknown as ff.Request;
             const res = { json: jest.fn() } as unknown as ff.Response;
 
-            await processStats(req, res, "https://usdf-rsp-dev.slac.stanford.edu/nightlydigest/api/exposures", "https://us-west1-skyviewer.cloudfunctions.net/redis-client/nightly-digest-stats"
-            );
+            await processStats(req, res, API_ENDPOINT as string, CACHE_ENDPOINT as string);
 
             expect(res.json).toHaveBeenCalledWith({
                 dome_open: true,

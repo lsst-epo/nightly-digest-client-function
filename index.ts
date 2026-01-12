@@ -6,13 +6,13 @@ import { NightlyDigestExposure, NightlyDigestBaseResponse } from './types';
 export const getConfig = () => {
     return {
         endpoints: {
-            CF_ENDPOINT: process.env.ND_API_ENDPOINT || "https://usdf-rsp-dev.slac.stanford.edu/nightlydigest/api/exposures",
-            CACHE_ENDPOINT: process.env.ND_CACHE_ENDPOINT || "https://us-west1-skyviewer.cloudfunctions.net/redis-client/nightly-digest-stats"
+            API_ENDPOINT: process.env.ND_API_ENDPOINT,
+            CACHE_ENDPOINT: process.env.ND_CACHE_ENDPOINT
         }
     };
 };
 
-const { CF_ENDPOINT, CACHE_ENDPOINT } = getConfig().endpoints;
+const { API_ENDPOINT, CACHE_ENDPOINT } = getConfig().endpoints;
 
 export async function cacheResult(endpoint: string, cache_endpoint: string, params: any, data: any) {
     try {
@@ -84,7 +84,7 @@ export async function nightlyDigestStatsHandler (req: ff.Request, res: ff.Respon
     if (req.path == "/") {
         return res.status(200).send("🐈‍⬛"); 
     } else if (req.path == "/nightlydigest-stats") {
-        return processStats(req, res, CF_ENDPOINT, CACHE_ENDPOINT);
+        return processStats(req, res, API_ENDPOINT as string, CACHE_ENDPOINT as string);
     } else {
         return res.status(400).send("Oopsies.");
     }
