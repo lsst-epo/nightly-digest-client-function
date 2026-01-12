@@ -32,15 +32,14 @@ const res = {
 
 describe('Nightly Digest stats', () => {
     const ENV = process.env;
-    // const config = getConfig();
     let API_ENDPOINT: string;
     let CACHE_ENDPOINT: string;
     beforeEach(() => {
         jest.useFakeTimers().setSystemTime(new Date("2026-01-07 01:30"));
         process.env = ENV;
-        // const { API_ENDPOINT, CACHE_ENDPOINT } = getConfig().endpoints;
-        API_ENDPOINT = getConfig().endpoints.API_ENDPOINT!;
-        CACHE_ENDPOINT = getConfig().endpoints.CACHE_ENDPOINT!;
+        let config = getConfig();
+        API_ENDPOINT = config.endpoints.API_ENDPOINT!;
+        CACHE_ENDPOINT = config.endpoints.CACHE_ENDPOINT!;
         jest.clearAllMocks();
     })
     afterEach(() => {
