@@ -13,9 +13,9 @@
     "mutate": "npx stryker run",
     "prepare": "husky",
     "prestart": "npm run build",
-    "test": "jest",
     "start": "functions-framework --target=index",
-    "start-dev": "npx @google-cloud/functions-framework --target=nightlydigest-stats --source=dist/index.js --verbose --port=8081"
+    "start-dev": "npx @google-cloud/functions-framework --target=nightlydigest-stats --source=dist/index.js --verbose --port=8081",
+    "test": "jest"
   },
   "private": true,
   "dependencies": {
