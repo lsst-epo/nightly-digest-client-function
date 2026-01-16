@@ -50,6 +50,13 @@ sh deploy.sh
 ```
 
 ## Development
+### Environment variables
+- `NIGHTLY_DIGEST_API_TOKEN` - token for the nightly digest api
+- `NIGHTLY_DIGEST_API_ENDPOINT` - nightly digest api endpoint where the data is sourced
+- `NIGHTLY_DIGEST_CACHE_ENDPOINT` - redis endpoint to cache nightly digest values
+- `REDIS_CACHE_TOKEN` - bearer auth token required to cache values
+- `AUTH_TOKEN` - bearer auth token for the nightly digest cloud function itself
+
 ### Start Development Server
 Run local development server
 ```
