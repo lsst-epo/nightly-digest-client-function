@@ -33,8 +33,8 @@ describe('Nightly Digest stats', () => {
     const ENV = process.env;
     let API_ENDPOINT: string;
     let CACHE_ENDPOINT: string;
-    let REDIS_BEARER_TOKEN: string;
-    let CLOUD_FUNCTION_BEARER_TOKEN: string;
+    let REDIS_CACHE_TOKEN: string;
+    let AUTH_TOKEN: string;
     beforeEach(() => {
         jest.useFakeTimers().setSystemTime(new Date("2026-01-07 01:30"));
         process.env = ENV;
@@ -42,8 +42,8 @@ describe('Nightly Digest stats', () => {
         const config = getConfig();
         API_ENDPOINT = config.endpoints.API_ENDPOINT!;
         CACHE_ENDPOINT = config.endpoints.CACHE_ENDPOINT!;
-        REDIS_BEARER_TOKEN = config.tokens.REDIS_BEARER_TOKEN as string;
-        CLOUD_FUNCTION_BEARER_TOKEN = config.tokens.CLOUD_FUNCTION_BEARER_TOKEN as string;
+        REDIS_CACHE_TOKEN = config.tokens.REDIS_CACHE_TOKEN as string;
+        AUTH_TOKEN = config.tokens.AUTH_TOKEN as string;
         
         jest.clearAllMocks();
     })
@@ -54,6 +54,7 @@ describe('Nightly Digest stats', () => {
     describe('fetchNightlyDigestData()', () => {
         it('propagates errors on API error', async () => {
             const mockError = new Error('Error');
+            console.error = jest.fn(); // silence error
             mockedAxios.get.mockRejectedValueOnce(mockError);
 
             await expect(fetchNightlyDigestData(API_ENDPOINT as string, '20260106', '20260107')).rejects.toThrow('Error');
@@ -69,7 +70,7 @@ describe('Nightly Digest stats', () => {
                 expect.any(String),
                 expect.objectContaining({
                     headers: expect.objectContaining({
-                        'Authorization': `Bearer ${process.env.BEARER_TOKEN}`
+                        'Authorization': `Bearer ${process.env.NIGHTLY_DIGEST_API_TOKEN}`
                     }),
                     params: expect.objectContaining({
                         dayObsStart: '20260106', 
@@ -97,7 +98,7 @@ describe('Nightly Digest stats', () => {
             const req = { 
                 path: "/nightly-digest-stats", 
                 headers: {
-                    authorization: `Bearer ${CLOUD_FUNCTION_BEARER_TOKEN}`
+                    authorization: `Bearer ${AUTH_TOKEN}`
                 },
                 query: {
                     startDate: "20260106", 
@@ -114,7 +115,7 @@ describe('Nightly Digest stats', () => {
                 expect.any(String),
                 expect.objectContaining({
                     headers: expect.objectContaining({
-                        'Authorization': `Bearer ${process.env.BEARER_TOKEN}`
+                        'Authorization': `Bearer ${process.env.NIGHTLY_DIGEST_API_TOKEN}`
                     }),
                     params: expect.objectContaining({
                         dayObsStart: '20260106', 
@@ -240,7 +241,7 @@ describe('Nightly Digest stats', () => {
                 expect.objectContaining({ params: 'current' }),
                 expect.objectContaining({
                     headers: {
-                        'Authorization': `Bearer ${REDIS_BEARER_TOKEN}`
+                        'Authorization': `Bearer ${REDIS_CACHE_TOKEN}`
                     }
                 })
             );
@@ -264,7 +265,7 @@ describe('Nightly Digest stats', () => {
                 expect.objectContaining({ params: 'current' }),
                 expect.objectContaining({
                     headers: {
-                        'Authorization': `Bearer ${REDIS_BEARER_TOKEN}`
+                        'Authorization': `Bearer ${REDIS_CACHE_TOKEN}`
                     }
                 })
             );
@@ -284,7 +285,7 @@ describe('Nightly Digest stats', () => {
                 expect.objectContaining({ params: 'full_history' }),
                 expect.objectContaining({
                     headers: {
-                        'Authorization': `Bearer ${REDIS_BEARER_TOKEN}`
+                        'Authorization': `Bearer ${REDIS_CACHE_TOKEN}`
                     }
                 })
             );

@@ -11,8 +11,8 @@ export const getConfig = () => {
             CACHE_ENDPOINT: process.env.ND_CACHE_ENDPOINT
         },
         tokens: {
-            REDIS_BEARER_TOKEN: process.env.REDIS_BEARER_TOKEN,
-            CLOUD_FUNCTION_BEARER_TOKEN: process.env.CLOUD_FUNCTION_BEARER_TOKEN
+            REDIS_CACHE_TOKEN: process.env.REDIS_CACHE_TOKEN,
+            AUTH_TOKEN: process.env.AUTH_TOKEN
 
         }
         
@@ -20,7 +20,7 @@ export const getConfig = () => {
 };
 
 const { API_ENDPOINT, CACHE_ENDPOINT } = getConfig().endpoints;
-const { REDIS_BEARER_TOKEN, CLOUD_FUNCTION_BEARER_TOKEN }  = getConfig().tokens;
+const { REDIS_CACHE_TOKEN, AUTH_TOKEN }  = getConfig().tokens;
 
 export async function cacheResult(endpoint: string, cache_endpoint: string, params: string | NightlyDigestParams, data: CleanedNightlyStats | NightlyDigestBaseResponse) {
     try {
@@ -30,7 +30,7 @@ export async function cacheResult(endpoint: string, cache_endpoint: string, para
             payload,
             {
                 headers: {
-                    'Authorization': `Bearer ${REDIS_BEARER_TOKEN}`
+                    'Authorization': `Bearer ${REDIS_CACHE_TOKEN}`
                 }
             }
         )
@@ -54,7 +54,7 @@ export function extractCurrent(data: NightlyDigestBaseResponse) {
 }
 
 export async function fetchNightlyDigestData<T>(endpoint: string, startDate: string, endDate: string): Promise<T> {
-    const bearerToken = process.env.BEARER_TOKEN
+    const bearerToken = process.env.NIGHTLY_DIGEST_API_TOKEN
     const instrument = "LSSTCam"
 
     try {
@@ -103,7 +103,7 @@ export function bearerAuth(req: ff.Request, res: ff.Response, next: NextFunction
 
     const token = authHeader.split(' ')[1];
 
-    if (token !== CLOUD_FUNCTION_BEARER_TOKEN as string) {
+    if (token !== AUTH_TOKEN as string) {
         return res.status(401).json({error: "Unauthorized: Invalid Token"});
     }
 
