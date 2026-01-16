@@ -19,11 +19,28 @@ export interface NightlyDigestExposure {
     pixel_scale_median: number | null;
     psf_sigma_median: number | null;
     visit_gap: number | null;
-    [key: string]: any[] | any;
+    [key: string]: unknown[] | unknown;
 }
 
 export interface NightlyDigestBaseResponse {
     exposures: NightlyDigestExposure[];
     exposures_count: number | null;
-    [key: string]: any[] | any;
+    [key: string]: unknown[] | unknown;
+}
+
+export interface NightlyDigestParams {
+    mode?: string;
+    startDate: string;
+    endDate: string;
+}
+
+export interface CleanedNightlyStats {
+    dome_open: boolean | null;
+    exposure_count: number | null;
+}
+
+export interface CachePayload {
+    endpoint: string;
+    params: string | NightlyDigestParams;
+    data: CleanedNightlyStats | NightlyDigestBaseResponse;
 }

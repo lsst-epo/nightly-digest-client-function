@@ -1,7 +1,7 @@
 import 'dotenv/config'
 import * as ff from '@google-cloud/functions-framework';
 import axios from "axios";
-import { NightlyDigestExposure, NightlyDigestBaseResponse } from './types';
+import { NightlyDigestBaseResponse, NightlyDigestParams, CleanedNightlyStats } from './types';
 import { NextFunction } from 'express';
 
 export const getConfig = () => {
@@ -10,21 +10,33 @@ export const getConfig = () => {
             API_ENDPOINT: process.env.ND_API_ENDPOINT,
             CACHE_ENDPOINT: process.env.ND_CACHE_ENDPOINT
         },
-        REDIS_BEARER_TOKEN: process.env.REDIS_BEARER_TOKEN
+        tokens: {
+            REDIS_BEARER_TOKEN: process.env.REDIS_BEARER_TOKEN,
+            CLOUD_FUNCTION_BEARER_TOKEN: process.env.CLOUD_FUNCTION_BEARER_TOKEN
+
+        }
+        
     };
 };
 
 const { API_ENDPOINT, CACHE_ENDPOINT } = getConfig().endpoints;
-const REDIS_BEARER_TOKEN  = getConfig().REDIS_BEARER_TOKEN;
+const { REDIS_BEARER_TOKEN, CLOUD_FUNCTION_BEARER_TOKEN }  = getConfig().tokens;
 
-export async function cacheResult(endpoint: string, cache_endpoint: string, params: any, data: any) {
+export async function cacheResult(endpoint: string, cache_endpoint: string, params: string | NightlyDigestParams, data: CleanedNightlyStats | NightlyDigestBaseResponse) {
     try {
         const payload = { endpoint: endpoint, params: params, data: data }
         await axios.post(
-            cache_endpoint, payload
+            cache_endpoint, 
+            payload,
+            {
+                headers: {
+                    'Authorization': `Bearer ${REDIS_BEARER_TOKEN}`
+                }
+            }
         )
-    } catch (error: any) {
-        console.warn(`Cache upload error: ${error.message}`)
+    } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        console.warn(`Cache upload error: ${message}`)
     }
 }
 
@@ -59,25 +71,24 @@ export async function fetchNightlyDigestData<T>(endpoint: string, startDate: str
 
         return response.data;
     } catch (error) {
+        console.error(error);
         throw error;
     }
 }
 
 
 export async function processStats(req: ff.Request, res: ff.Response, cloudEndpoint: string, cacheEndpoint: string) {
-    const mode = req.query?.mode || 'current'; // probably don't need this right now, but could be useful in the future if we want to expand beyond just getting current
+    const mode = (req.query?.mode || 'current') as string; // probably don't need this right now, but could be useful in the future if we want to expand beyond just getting current
     const startDate = req.query?.startDate as string
     const endDate = req.query?.endDate as string 
-    let data = await fetchNightlyDigestData<NightlyDigestBaseResponse>(cloudEndpoint, startDate, endDate);
+    const data = await fetchNightlyDigestData<NightlyDigestBaseResponse>(cloudEndpoint, startDate, endDate);
 
-    let result = data;
     const currentData = extractCurrent(data);
-    const lastExposure = currentData.last_exposure;
 
-    let cleaned_result = {
+    const cleaned_result = {
         dome_open: currentData.last_can_see_sky ?? null,
         exposure_count: currentData.exposures_count ?? null
-    }
+    } as CleanedNightlyStats;
 
     await cacheResult(cloudEndpoint, cacheEndpoint, mode, cleaned_result); 
     res.json(cleaned_result)
@@ -92,22 +103,22 @@ export function bearerAuth(req: ff.Request, res: ff.Response, next: NextFunction
 
     const token = authHeader.split(' ')[1];
 
-    if (token !== REDIS_BEARER_TOKEN as string) {
+    if (token !== CLOUD_FUNCTION_BEARER_TOKEN as string) {
         return res.status(401).json({error: "Unauthorized: Invalid Token"});
     }
 
-    next();
+    return next();
 }
 
 export async function nightlyDigestStatsHandler (req: ff.Request, res: ff.Response) {
     if (req.path == "/") {
         return res.status(200).send("🐈‍⬛"); 
-    } else if (req.path == "/nightlydigest-stats") {
-        bearerAuth(
+    } else if (req.path == "/nightly-digest-stats") {
+        return bearerAuth(
             req,
             res, 
             async () => {
-                processStats(req, res, API_ENDPOINT as string, CACHE_ENDPOINT as string)
+                return await processStats(req, res, API_ENDPOINT as string, CACHE_ENDPOINT as string)
             });
     } else {
         return res.status(400).send("Oopsies.");

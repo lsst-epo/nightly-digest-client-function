@@ -6,3 +6,5 @@ coverage
 # stryker temp files
 .stryker-tmp
 reports
+
+.husky/_

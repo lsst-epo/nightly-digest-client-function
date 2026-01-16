@@ -18,7 +18,7 @@ graph LR
     end
 
     subgraph nightlydigestclient
-        nightlydigest-stats["/nightlydigest-stats"]
+        nightlydigest-stats["/nightly-digest-stats"]
     end
 
     subgraph Hasura

@@ -9,11 +9,12 @@
   "scripts": {
     "build": "tsc",
     "start": "functions-framework --target=index",
-    "start-dev": "npx @google-cloud/functions-framework --target=nightlydigest-stats --source=dist/index.js --verbose",
+    "start-dev": "npx @google-cloud/functions-framework --target=nightlydigest-stats --source=dist/index.js --verbose --port=8081",
     "prestart": "npm run build",
     "gcp-build": "npm run build",
     "test": "jest",
-    "mutate": "npx stryker run"
+    "mutate": "npx stryker run",
+    "prepare": "husky"
   },
   "private": true,
   "dependencies": {
@@ -23,11 +24,19 @@
     "dotenv": "^17.2.3"
   },
   "devDependencies": {
+    "@eslint/js": "^9.39.2",
     "@stryker-mutator/core": "^9.4.0",
     "@stryker-mutator/jest-runner": "^9.4.0",
     "@types/jest": "^30.0.0",
+    "eslint": "^9.39.2",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-prettier": "^5.5.4",
+    "globals": "^17.0.0",
+    "husky": "^9.1.7",
     "jest": "^30.2.0",
+    "prettier": "^3.7.4",
     "ts-jest": "^29.4.6",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.53.0"
   }
 }
