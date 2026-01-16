@@ -215,7 +215,7 @@ describe('Nightly Digest stats', () => {
             expect(res.json).toHaveBeenCalled();
         })
 
-        it('fetches data, extracts mode, caches result', async () => {
+        it('fetches data, extracts mode, caches result with full history', async () => {
             mockedAxios.get.mockResolvedValueOnce({ data: mockedResponseSuccess });
             mockedAxios.post.mockResolvedValueOnce({ status: 200 }) // for redis cache
             const req = {
