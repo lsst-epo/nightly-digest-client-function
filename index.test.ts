@@ -7,6 +7,7 @@ import {
 } from './index';
 import {jest} from '@jest/globals';
 import {mockedResponseSuccess} from './mockData';
+import { NightlyDigestBaseResponse } from './types';
 import * as ff from '@google-cloud/functions-framework';
 import axios from 'axios';
 import 'dotenv/config';
@@ -33,14 +34,17 @@ describe('Nightly Digest stats', () => {
     let API_ENDPOINT: string;
     let CACHE_ENDPOINT: string;
     let REDIS_BEARER_TOKEN: string;
+    let CLOUD_FUNCTION_BEARER_TOKEN: string;
     beforeEach(() => {
         jest.useFakeTimers().setSystemTime(new Date("2026-01-07 01:30"));
         process.env = ENV;
         
-        let config = getConfig();
+        const config = getConfig();
         API_ENDPOINT = config.endpoints.API_ENDPOINT!;
         CACHE_ENDPOINT = config.endpoints.CACHE_ENDPOINT!;
-        REDIS_BEARER_TOKEN = config.tokens.REDIS_TOKEN;
+        REDIS_BEARER_TOKEN = config.tokens.REDIS_BEARER_TOKEN as string;
+        CLOUD_FUNCTION_BEARER_TOKEN = config.tokens.CLOUD_FUNCTION_BEARER_TOKEN as string;
+        
         jest.clearAllMocks();
     })
     afterEach(() => {
@@ -80,21 +84,25 @@ describe('Nightly Digest stats', () => {
 
     describe('nightlyDigestStatsHandler()', () => {
         const mockRes = () => {
-            const res: any = {};
-            res.status = jest.fn().mockReturnValue(res);
-            res.send = jest.fn().mockReturnValue(res);
-            res.json = jest.fn().mockReturnValue(res);
+            const res = {
+                status: jest.fn().mockReturnThis(),
+                send: jest.fn().mockReturnThis(),
+                json: jest.fn().mockReturnThis()
+            } as unknown as ff.Response;
             return res;
         }
-        it('routes /nightlydigest-stats to processStats', async () => {
+        it('routes /nightly-digest-stats to processStats', async () => {
             mockedAxios.get.mockResolvedValueOnce({ data: mockedResponseSuccess});
 
             const req = { 
-                path: "/nightlydigest-stats", 
+                path: "/nightly-digest-stats", 
+                headers: {
+                    authorization: `Bearer ${CLOUD_FUNCTION_BEARER_TOKEN}`
+                },
                 query: {
                     startDate: "20260106", 
                     endDate: "20260107"
-                }} as any;
+                }} as unknown as ff.Request;
             const res = mockRes();
 
             await nightlyDigestStatsHandler(req, res);
@@ -118,7 +126,7 @@ describe('Nightly Digest stats', () => {
         });
 
         it('routes / to processStats', async () => {
-            const req = { path: "/"} as any;
+            const req = { path: "/"} as unknown as ff.Request;
             const res = mockRes();
 
             await nightlyDigestStatsHandler(req, res);
@@ -128,7 +136,7 @@ describe('Nightly Digest stats', () => {
         })
 
         it('returns 400 for unknown paths', async () => {
-            const req = { path: '/unknown' } as any;
+            const req = { path: '/unknown' } as unknown as ff.Request;
             const res = mockRes();
     
             await nightlyDigestStatsHandler(req, res);
@@ -158,7 +166,7 @@ describe('Nightly Digest stats', () => {
                 exposures: [], 
                 exposures_count: 0 
             };
-            const result = extractCurrent(mockData as any);
+            const result = extractCurrent(mockData as NightlyDigestBaseResponse);
 
             expect(result.last_exposure).toBeNull();
             expect(result.last_can_see_sky).toBeNull();
@@ -173,7 +181,7 @@ describe('Nightly Digest stats', () => {
                 ],
                 exposures_count: 2
             };
-            const result = extractCurrent(mockData as any);
+            const result = extractCurrent(mockData as unknown as NightlyDigestBaseResponse);
 
             expect(result.last_exposure).toEqual({ can_see_sky: true, id: 2 });
             expect(result.last_can_see_sky).toBe(true);
@@ -189,7 +197,7 @@ describe('Nightly Digest stats', () => {
                 ], // can_see_sky missing
                 exposures_count: undefined 
             };
-            const result = extractCurrent(mockData as any);
+            const result = extractCurrent(mockData as unknown as NightlyDigestBaseResponse);
 
             expect(result.last_can_see_sky).toBeNull();
             expect(result.exposures_count).toBe(0);
@@ -201,7 +209,7 @@ describe('Nightly Digest stats', () => {
             mockedAxios.get.mockResolvedValueOnce({ data: mockedResponseSuccess });
             mockedAxios.post.mockResolvedValueOnce({ status: 200 }) // for redis cache
 
-            const result = await processStats(req, res, API_ENDPOINT as string, CACHE_ENDPOINT as string);
+            await processStats(req, res, API_ENDPOINT as string, CACHE_ENDPOINT as string);
 
             expect(res.json).toHaveBeenCalled();
         })
@@ -213,7 +221,7 @@ describe('Nightly Digest stats', () => {
                 query: {mode: "full_history"}
             } as unknown as ff.Request;
 
-            const result = await processStats(req, res, API_ENDPOINT as string, CACHE_ENDPOINT as string);
+            await processStats(req, res, API_ENDPOINT as string, CACHE_ENDPOINT as string);
 
             expect(res.json).toHaveBeenCalled();
         })
@@ -225,11 +233,16 @@ describe('Nightly Digest stats', () => {
             const req = { query: {} } as unknown as ff.Request;
             const res = { json: jest.fn() } as unknown as ff.Response;
     
-            const result = await processStats(req, res, API_ENDPOINT as string, CACHE_ENDPOINT as string);
+            await processStats(req, res, API_ENDPOINT as string, CACHE_ENDPOINT as string);
     
             expect(mockedAxios.post).toHaveBeenCalledWith(
                 expect.any(String),
-                expect.objectContaining({ params: 'current' }) 
+                expect.objectContaining({ params: 'current' }),
+                expect.objectContaining({
+                    headers: {
+                        'Authorization': `Bearer ${REDIS_BEARER_TOKEN}`
+                    }
+                })
             );
         });
 
@@ -248,7 +261,12 @@ describe('Nightly Digest stats', () => {
         
             expect(mockedAxios.post).toHaveBeenCalledWith(
                 expect.any(String),
-                expect.objectContaining({ params: 'current' }) 
+                expect.objectContaining({ params: 'current' }),
+                expect.objectContaining({
+                    headers: {
+                        'Authorization': `Bearer ${REDIS_BEARER_TOKEN}`
+                    }
+                })
             );
         });
 
@@ -256,14 +274,19 @@ describe('Nightly Digest stats', () => {
             mockedAxios.get.mockResolvedValue({ data: mockedResponseSuccess });
             mockedAxios.post.mockResolvedValue({ status: 200 });
         
-            const req = { query: { mode: 'full_history' } } as any;
-            const res = { json: jest.fn() } as any;
+            const req = { query: { mode: 'full_history' } } as unknown as ff.Request;
+            const res = { json: jest.fn() } as unknown as ff.Response;
         
-            const result = await processStats(req, res, API_ENDPOINT as string, CACHE_ENDPOINT as string);
+            await processStats(req, res, API_ENDPOINT as string, CACHE_ENDPOINT as string);
         
             expect(mockedAxios.post).toHaveBeenCalledWith(
                 expect.any(String),
-                expect.objectContaining({ params: 'full_history' }) 
+                expect.objectContaining({ params: 'full_history' }),
+                expect.objectContaining({
+                    headers: {
+                        'Authorization': `Bearer ${REDIS_BEARER_TOKEN}`
+                    }
+                })
             );
         });
     
@@ -278,7 +301,7 @@ describe('Nightly Digest stats', () => {
             const req = { query: { mode: 'current' } } as unknown as ff.Request;
             const res = { json: jest.fn() } as unknown as ff.Response;
     
-            const result = await processStats(req, res, API_ENDPOINT as string, CACHE_ENDPOINT as string);
+            await processStats(req, res, API_ENDPOINT as string, CACHE_ENDPOINT as string);
     
             
             expect(res.json).toHaveBeenCalledWith({
