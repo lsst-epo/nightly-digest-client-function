@@ -8,13 +8,14 @@
   "license": "MIT",
   "scripts": {
     "build": "tsc",
-    "start": "functions-framework --target=index",
-    "start-dev": "npx @google-cloud/functions-framework --target=nightlydigest-stats --source=dist/index.js --verbose --port=8081",
-    "prestart": "npm run build",
     "gcp-build": "npm run build",
-    "test": "jest",
+    "lint": "npx eslint .",
     "mutate": "npx stryker run",
-    "prepare": "husky"
+    "prepare": "husky",
+    "prestart": "npm run build",
+    "test": "jest",
+    "start": "functions-framework --target=index",
+    "start-dev": "npx @google-cloud/functions-framework --target=nightlydigest-stats --source=dist/index.js --verbose --port=8081"
   },
   "private": true,
   "dependencies": {
