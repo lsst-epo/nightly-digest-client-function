@@ -7,8 +7,8 @@ import { NextFunction } from 'express';
 export const getConfig = () => {
     return {
         endpoints: {
-            API_ENDPOINT: process.env.ND_API_ENDPOINT,
-            CACHE_ENDPOINT: process.env.ND_CACHE_ENDPOINT
+            API_ENDPOINT: process.env.NIGHTLY_DIGEST_API_ENDPOINT,
+            CACHE_ENDPOINT: process.env.NIGHTLY_DIGEST_CACHE_ENDPOINT
         },
         tokens: {
             REDIS_CACHE_TOKEN: process.env.REDIS_CACHE_TOKEN,
