@@ -3,29 +3,17 @@ import * as ff from '@google-cloud/functions-framework';
 import axios from "axios";
 import { NightlyDigestBaseResponse, NightlyDigestParams, CleanedNightlyStats } from './types';
 import { NextFunction } from 'express';
+import { getConfig, getFormattedDate, isNextDay} from './utils';
 
-export const getConfig = () => {
-    return {
-        endpoints: {
-            API_ENDPOINT: process.env.NIGHTLY_DIGEST_API_ENDPOINT,
-            CACHE_ENDPOINT: process.env.NIGHTLY_DIGEST_CACHE_ENDPOINT
-        },
-        tokens: {
-            REDIS_CACHE_TOKEN: process.env.REDIS_CACHE_TOKEN,
-            AUTH_TOKEN: process.env.AUTH_TOKEN
-
-        }
-        
-    };
-};
 
 const { API_ENDPOINT, CACHE_ENDPOINT } = getConfig().endpoints;
 const { REDIS_CACHE_TOKEN, AUTH_TOKEN }  = getConfig().tokens;
+const { DAY_OBS_START, DAY_OBS_END, MODE, TOTAL_EXPECTED_EXPOSURES } = getConfig().params;
 
-export async function cacheResult(endpoint: string, cache_endpoint: string, params: string | NightlyDigestParams, data: CleanedNightlyStats | NightlyDigestBaseResponse) {
+export async function cacheResult(endpoint: string, cache_endpoint: string, params: string | NightlyDigestParams, data: CleanedNightlyStats | NightlyDigestBaseResponse, startDate?: string) {
     try {
-        const payload = { endpoint: endpoint, params: params, data: data }
-        await axios.post(
+        const payload = { endpoint: endpoint, params: params, data: data, startDate: startDate }
+        const response = await axios.post(
             cache_endpoint, 
             payload,
             {
@@ -34,9 +22,12 @@ export async function cacheResult(endpoint: string, cache_endpoint: string, para
                 }
             }
         )
+
+        return response?.data;
     } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         console.warn(`Cache upload error: ${message}`)
+        return null;
     }
 }
 
@@ -56,6 +47,8 @@ export function extractCurrent(data: NightlyDigestBaseResponse) {
 export async function fetchNightlyDigestData<T>(endpoint: string, startDate: string, endDate: string): Promise<T> {
     const bearerToken = process.env.NIGHTLY_DIGEST_API_TOKEN
     const instrument = "LSSTCam"
+
+    console.log(`startDate: ${startDate}, endDate: ${endDate}`);
 
     try {
         const response = await axios.get(endpoint, {
@@ -77,21 +70,19 @@ export async function fetchNightlyDigestData<T>(endpoint: string, startDate: str
 }
 
 
-export async function processStats(req: ff.Request, res: ff.Response, cloudEndpoint: string, cacheEndpoint: string) {
-    const mode = (req.query?.mode || 'current') as string; // probably don't need this right now, but could be useful in the future if we want to expand beyond just getting current
-    const startDate = req.query?.startDate as string
-    const endDate = req.query?.endDate as string 
+export async function processStats(cloudEndpoint: string, cacheEndpoint: string, startDate: string, endDate: string, mode: string) {
     const data = await fetchNightlyDigestData<NightlyDigestBaseResponse>(cloudEndpoint, startDate, endDate);
-
     const currentData = extractCurrent(data);
 
-    const cleaned_result = {
+    const cleanedResult = {
         dome_open: currentData.last_can_see_sky ?? null,
         exposure_count: currentData.exposures_count ?? null
     } as CleanedNightlyStats;
 
-    await cacheResult(cloudEndpoint, cacheEndpoint, mode, cleaned_result); 
-    res.json(cleaned_result)
+    const bucketDate = isNextDay(startDate, endDate) ? startDate : undefined;
+    await cacheResult(cloudEndpoint, cacheEndpoint, mode, cleanedResult, bucketDate); 
+    return cleanedResult;
+
 }
 
 
@@ -118,7 +109,11 @@ export async function nightlyDigestStatsHandler (req: ff.Request, res: ff.Respon
             req,
             res, 
             async () => {
-                return await processStats(req, res, API_ENDPOINT as string, CACHE_ENDPOINT as string)
+                const mode = (MODE ?? req.query?.mode ?? 'current') as string; // probably don't need this right now, but could be useful in the future if we want to expand beyond just getting current
+                const startDate = (DAY_OBS_START ?? req.query?.startDate ?? getFormattedDate(-1) ) as string
+                const endDate = (DAY_OBS_END ?? req.query?.endDate ?? getFormattedDate()) as string 
+                let result = await processStats(API_ENDPOINT as string, CACHE_ENDPOINT as string, startDate, endDate, mode);
+                res.json(result);
             });
     } else {
         return res.status(400).send("Oopsies.");

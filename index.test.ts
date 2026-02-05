@@ -2,9 +2,12 @@ import {
     nightlyDigestStatsHandler, 
     processStats, 
     extractCurrent, 
-    fetchNightlyDigestData,
-    getConfig,
+    fetchNightlyDigestData
 } from './index';
+import {
+    getFormattedDate,
+    getConfig
+} from './utils';
 import {jest} from '@jest/globals';
 import {mockedResponseSuccess} from './mockData';
 import { NightlyDigestBaseResponse } from './types';
@@ -16,12 +19,7 @@ jest.mock('axios'); // mock axios globally at top level to prevent accidental ne
 
 const mockedAxios = axios as jest.Mocked<typeof axios>
 
-const req = {
-    query: {
-        startDate: "20260106",
-        endDate: "20270107"
-    }
-} as unknown as ff.Request;
+const req = {} as unknown as ff.Request;
 
 const res = {
     status: jest.fn().mockReturnThis(),
@@ -35,16 +33,26 @@ describe('Nightly Digest stats', () => {
     let CACHE_ENDPOINT: string;
     let REDIS_CACHE_TOKEN: string;
     let AUTH_TOKEN: string;
+
+    let startDate: string;
+    let endDate: string;
+    let mode: string;
     beforeEach(() => {
-        jest.useFakeTimers().setSystemTime(new Date("2026-01-07 01:30"));
-        process.env = ENV;
-        
+        const now = new Date();
+        now.setHours(1, 30, 0, 0); // 1:30 am
+        jest.useFakeTimers().setSystemTime(now);
+
         const config = getConfig();
         API_ENDPOINT = config.endpoints.API_ENDPOINT!;
         CACHE_ENDPOINT = config.endpoints.CACHE_ENDPOINT!;
         REDIS_CACHE_TOKEN = config.tokens.REDIS_CACHE_TOKEN as string;
         AUTH_TOKEN = config.tokens.AUTH_TOKEN as string;
-        
+
+        const {DAY_OBS_START, DAY_OBS_END, MODE, TOTAL_EXPECTED_EXPOSURES } = config.params;
+        startDate = getFormattedDate();
+        endDate = getFormattedDate(1);
+
+        mode = (MODE ?? req.query?.mode ?? 'current') as string; // probably don't need this right now, but could be useful in the future if we want to expand beyond just getting current
         jest.clearAllMocks();
     })
     afterEach(() => {
@@ -57,7 +65,7 @@ describe('Nightly Digest stats', () => {
             console.error = jest.fn(); // silence error
             mockedAxios.get.mockRejectedValueOnce(mockError);
 
-            await expect(fetchNightlyDigestData(API_ENDPOINT as string, '20260106', '20260107')).rejects.toThrow('Error');
+            await expect(fetchNightlyDigestData(API_ENDPOINT as string, getFormattedDate(), getFormattedDate(1))).rejects.toThrow('Error');
         });
 
         it('should use default value for startDate and endDate', async () => {
@@ -65,7 +73,7 @@ describe('Nightly Digest stats', () => {
                 data: {"success": true}
             })
 
-            await fetchNightlyDigestData(API_ENDPOINT as string, '20260106', '20260107');
+            await fetchNightlyDigestData(API_ENDPOINT as string, getFormattedDate(), getFormattedDate(1));
             expect(mockedAxios.get).toHaveBeenCalledWith(
                 expect.any(String),
                 expect.objectContaining({
@@ -73,8 +81,8 @@ describe('Nightly Digest stats', () => {
                         'Authorization': `Bearer ${process.env.NIGHTLY_DIGEST_API_TOKEN}`
                     }),
                     params: expect.objectContaining({
-                        dayObsStart: '20260106', 
-                        dayObsEnd: '20260107',
+                        dayObsStart: getFormattedDate(), 
+                        dayObsEnd: getFormattedDate(1),
                         instrument: 'LSSTCam'
                     })
                 })
@@ -93,6 +101,11 @@ describe('Nightly Digest stats', () => {
             return res;
         }
         it('routes /nightly-digest-stats to processStats', async () => {
+            const start = process.env.DAY_OBS_START;
+            const end = getFormattedDate();
+            const now = new Date();
+            now.setHours(1, 30, 0, 0); // 1:30 am
+            jest.useFakeTimers().setSystemTime(now);
             mockedAxios.get.mockResolvedValueOnce({ data: mockedResponseSuccess});
 
             const req = { 
@@ -101,8 +114,8 @@ describe('Nightly Digest stats', () => {
                     authorization: `Bearer ${AUTH_TOKEN}`
                 },
                 query: {
-                    startDate: "20260106", 
-                    endDate: "20260107"
+                    startDate: start, 
+                    endDate: end
                 }} as unknown as ff.Request;
             const res = mockRes();
 
@@ -118,8 +131,8 @@ describe('Nightly Digest stats', () => {
                         'Authorization': `Bearer ${process.env.NIGHTLY_DIGEST_API_TOKEN}`
                     }),
                     params: expect.objectContaining({
-                        dayObsStart: '20260106', 
-                        dayObsEnd: '20260107',
+                        dayObsStart: start ?? getFormattedDate(-1), 
+                        dayObsEnd: end,
                         instrument: 'LSSTCam'
                     })
                 })
@@ -152,7 +165,7 @@ describe('Nightly Digest stats', () => {
             
             // suppress output during test and verify it was called
             const consoleSpy = jest.spyOn(console, 'warn').mockImplementation(()=>{});
-            await expect(processStats(req, res, API_ENDPOINT as string, CACHE_ENDPOINT as string))
+            await expect(processStats(API_ENDPOINT as string, CACHE_ENDPOINT as string, startDate, endDate, mode))
                 .resolves.not.toThrow();
 
             expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining("Cache upload error: Cache Down"));
@@ -209,10 +222,10 @@ describe('Nightly Digest stats', () => {
         it('fetches data, extracts mode, caches result', async () => {
             mockedAxios.get.mockResolvedValueOnce({ data: mockedResponseSuccess });
             mockedAxios.post.mockResolvedValueOnce({ status: 200 }) // for redis cache
+            const result = await processStats(API_ENDPOINT, CACHE_ENDPOINT, '20260129', '20260130', 'current');
 
-            await processStats(req, res, API_ENDPOINT as string, CACHE_ENDPOINT as string);
-
-            expect(res.json).toHaveBeenCalled();
+            expect(result).toHaveProperty('exposure_count');
+            expect(mockedAxios.post).toHaveBeenCalled();
         })
 
         it('fetches data, extracts mode, caches result with full history', async () => {
@@ -222,9 +235,13 @@ describe('Nightly Digest stats', () => {
                 query: {mode: "full_history"}
             } as unknown as ff.Request;
 
-            await processStats(req, res, API_ENDPOINT as string, CACHE_ENDPOINT as string);
-
-            expect(res.json).toHaveBeenCalled();
+            await processStats(API_ENDPOINT, CACHE_ENDPOINT, '20260129', '20260130', 'full_history');
+        
+            expect(mockedAxios.post).toHaveBeenCalledWith(
+                expect.any(String),
+                expect.objectContaining({ params: 'full_history' }), // This will now pass
+                expect.any(Object)
+            );
         })
 
         it('uses "current" as default mode when query.mode is missing', async () => {
@@ -234,7 +251,7 @@ describe('Nightly Digest stats', () => {
             const req = { query: {} } as unknown as ff.Request;
             const res = { json: jest.fn() } as unknown as ff.Response;
     
-            await processStats(req, res, API_ENDPOINT as string, CACHE_ENDPOINT as string);
+            await processStats(API_ENDPOINT as string, CACHE_ENDPOINT as string, startDate, endDate, mode);
     
             expect(mockedAxios.post).toHaveBeenCalledWith(
                 expect.any(String),
@@ -257,7 +274,7 @@ describe('Nightly Digest stats', () => {
     
             
             await expect(
-                processStats(req, res, API_ENDPOINT as string, CACHE_ENDPOINT as string)
+                processStats(API_ENDPOINT as string, CACHE_ENDPOINT as string, startDate, endDate, mode)
             ).resolves.not.toThrow(); // don't throw an error because of the ?. operator
         
             expect(mockedAxios.post).toHaveBeenCalledWith(
@@ -278,7 +295,7 @@ describe('Nightly Digest stats', () => {
             const req = { query: { mode: 'full_history' } } as unknown as ff.Request;
             const res = { json: jest.fn() } as unknown as ff.Response;
         
-            await processStats(req, res, API_ENDPOINT as string, CACHE_ENDPOINT as string);
+            await processStats(API_ENDPOINT as string, CACHE_ENDPOINT as string, startDate, endDate, 'full_history');
         
             expect(mockedAxios.post).toHaveBeenCalledWith(
                 expect.any(String),
@@ -302,10 +319,9 @@ describe('Nightly Digest stats', () => {
             const req = { query: { mode: 'current' } } as unknown as ff.Request;
             const res = { json: jest.fn() } as unknown as ff.Response;
     
-            await processStats(req, res, API_ENDPOINT as string, CACHE_ENDPOINT as string);
-    
-            
-            expect(res.json).toHaveBeenCalledWith({
+            const result = await processStats(API_ENDPOINT as string, CACHE_ENDPOINT as string, startDate, endDate, mode);
+
+            expect(result).toEqual({
                 dome_open: false,
                 exposure_count: 95
             });
@@ -323,11 +339,11 @@ describe('Nightly Digest stats', () => {
             const req = { query: { mode: 'current' } } as unknown as ff.Request;
             const res = { json: jest.fn() } as unknown as ff.Response;
 
-            await processStats(req, res, API_ENDPOINT as string, CACHE_ENDPOINT as string);
+            const result = await processStats(API_ENDPOINT as string, CACHE_ENDPOINT as string, startDate, endDate, mode);
 
-            expect(res.json).toHaveBeenCalledWith({
+            expect(result).toEqual({
                 dome_open: true,
-                exposure_count: 0 // This is 0 since in extractCurrent(), we set exposures_count: exposuresCount ?? 0 where exposuresCount is undefined
+                exposure_count: 0
             });
         });
     })
