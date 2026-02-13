@@ -1,42 +1,32 @@
 import 'dotenv/config'
 import * as ff from '@google-cloud/functions-framework';
 import axios from "axios";
-import { NightlyDigestBaseResponse, NightlyDigestParams, CleanedNightlyStats } from './types';
+import { NightlyDigestBaseResponse, NightlyDigestParams, CleanedNightlyStats, Config } from './types';
 import { NextFunction } from 'express';
+import { getConfig, utcOffset, formatDate, parseYYYYMMDD, isNextDay} from './utils';
 
-export const getConfig = () => {
-    return {
-        endpoints: {
-            API_ENDPOINT: process.env.NIGHTLY_DIGEST_API_ENDPOINT,
-            CACHE_ENDPOINT: process.env.NIGHTLY_DIGEST_CACHE_ENDPOINT
-        },
-        tokens: {
-            REDIS_CACHE_TOKEN: process.env.REDIS_CACHE_TOKEN,
-            AUTH_TOKEN: process.env.AUTH_TOKEN
-
-        }
-        
-    };
-};
-
-const { API_ENDPOINT, CACHE_ENDPOINT } = getConfig().endpoints;
-const { REDIS_CACHE_TOKEN, AUTH_TOKEN }  = getConfig().tokens;
-
-export async function cacheResult(endpoint: string, cache_endpoint: string, params: string | NightlyDigestParams, data: CleanedNightlyStats | NightlyDigestBaseResponse) {
+export async function cacheResult(config: Config, params: string | NightlyDigestParams, data: CleanedNightlyStats | NightlyDigestBaseResponse, startDate?: string) {
+    const endpoint = config.endpoints.API_ENDPOINT;
+    const cacheEndpoint = config.endpoints.CACHE_ENDPOINT;
+    const redisCacheToken = config.tokens.REDIS_CACHE_TOKEN;
+    
     try {
-        const payload = { endpoint: endpoint, params: params, data: data }
-        await axios.post(
-            cache_endpoint, 
+        const payload = { endpoint: endpoint, params: params, data: data, startDate: startDate }
+        const response = await axios.post(
+            cacheEndpoint, 
             payload,
             {
                 headers: {
-                    'Authorization': `Bearer ${REDIS_CACHE_TOKEN}`
+                    'Authorization': `Bearer ${redisCacheToken}`
                 }
             }
         )
+
+        return response?.data;
     } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         console.warn(`Cache upload error: ${message}`)
+        return null;
     }
 }
 
@@ -57,6 +47,8 @@ export async function fetchNightlyDigestData<T>(endpoint: string, startDate: str
     const bearerToken = process.env.NIGHTLY_DIGEST_API_TOKEN
     const instrument = "LSSTCam"
 
+    console.log(`startDate: ${startDate}, endDate: ${endDate}`);
+
     try {
         const response = await axios.get(endpoint, {
             headers: {
@@ -76,26 +68,65 @@ export async function fetchNightlyDigestData<T>(endpoint: string, startDate: str
     }
 }
 
-
-export async function processStats(req: ff.Request, res: ff.Response, cloudEndpoint: string, cacheEndpoint: string) {
-    const mode = (req.query?.mode || 'current') as string; // probably don't need this right now, but could be useful in the future if we want to expand beyond just getting current
-    const startDate = req.query?.startDate as string
-    const endDate = req.query?.endDate as string 
-    const data = await fetchNightlyDigestData<NightlyDigestBaseResponse>(cloudEndpoint, startDate, endDate);
-
+export async function processStats(config: Config, startDate: string, endDate: string, mode: string) {
+    const { API_ENDPOINT } = config.endpoints;
+    
+    const data = await fetchNightlyDigestData<NightlyDigestBaseResponse>(API_ENDPOINT, startDate, endDate);
     const currentData = extractCurrent(data);
 
-    const cleaned_result = {
+    const cleanedResult = {
         dome_open: currentData.last_can_see_sky ?? null,
-        exposure_count: currentData.exposures_count ?? null
+        exposure_count: currentData.exposures_count // guaranteed to default to 0, not null via extractCurrent()
     } as CleanedNightlyStats;
 
-    await cacheResult(cloudEndpoint, cacheEndpoint, mode, cleaned_result); 
-    res.json(cleaned_result)
+    const bucketDate = isNextDay(startDate, endDate) ? startDate : undefined;
+
+    await cacheResult(config, mode, cleanedResult, bucketDate); 
+    return cleanedResult;
+
 }
 
+export async function reaccumulateExposures(config: Config, surveyStartDateStr: string, endDateStr: string, dateInterval: number = 1) {
+    let currentDate = parseYYYYMMDD(surveyStartDateStr);
+    const endDate = parseYYYYMMDD(endDateStr);
 
-export function bearerAuth(req: ff.Request, res: ff.Response, next: NextFunction) {
+    let cleanedResult = {
+        dome_open: null,
+        exposure_count: 0
+    } as CleanedNightlyStats;
+
+    let lastResult: CleanedNightlyStats | null = null;
+    
+    console.log(`reaccumlating from ${currentDate} to ${endDate}`);
+
+    while(currentDate < endDate) {
+        const dayStartStr = formatDate(currentDate);
+        const dayEndStr = formatDate(utcOffset(currentDate, dateInterval));
+
+        try {
+            console.log(`Processing: ${dayStartStr} -> ${dayEndStr}`);
+
+            lastResult = await processStats(
+                config,
+                dayStartStr, 
+                dayEndStr, 
+                'reaccumulate'
+            );
+
+            cleanedResult['dome_open'] = cleanedResult['dome_open']; 
+            cleanedResult['exposure_count'] = Number(cleanedResult['exposure_count']) + Number(lastResult['exposure_count']); // each component should be guaranteed to default to 0
+            
+            console.log(`currentDay: ${dayStartStr}, nextDay: ${dayEndStr}`);
+            console.log(`exposure_count: ${cleanedResult['exposure_count']}`);
+        } catch (error) {
+            console.error(`Error on ${dayStartStr}: `, error);
+        }
+        currentDate = utcOffset(currentDate, dateInterval);
+    }
+    return cleanedResult;
+}
+
+export function bearerAuth(req: ff.Request, res: ff.Response, next: NextFunction, authToken: string) {
     const authHeader = req.headers.authorization;
     if (!authHeader?.startsWith('Bearer ')) {
         return res.status(401).json({error: "Unauthorized: Missing Bearer Token"});
@@ -103,7 +134,7 @@ export function bearerAuth(req: ff.Request, res: ff.Response, next: NextFunction
 
     const token = authHeader.split(' ')[1];
 
-    if (token !== AUTH_TOKEN as string) {
+    if (token !== authToken as string) {
         return res.status(401).json({error: "Unauthorized: Invalid Token"});
     }
 
@@ -111,18 +142,34 @@ export function bearerAuth(req: ff.Request, res: ff.Response, next: NextFunction
 }
 
 export async function nightlyDigestStatsHandler (req: ff.Request, res: ff.Response) {
-    if (req.path == "/") {
-        return res.status(200).send("🐈‍⬛"); 
-    } else if (req.path == "/nightly-digest-stats") {
-        return bearerAuth(
-            req,
-            res, 
-            async () => {
-                return await processStats(req, res, API_ENDPOINT as string, CACHE_ENDPOINT as string)
-            });
-    } else {
-        return res.status(400).send("Oopsies.");
-    }
+    const config = getConfig();
+
+    return bearerAuth(
+        req,
+        res, 
+        async () => {
+            if (req.path == "/") {
+                return res.status(200).send("🐈‍⬛"); 
+            }
+            if (req.path == "/nightly-digest-stats") {
+                const config = getConfig();
+                const mode = (config.params.MODE || req.query.mode || 'current') as string; // probably don't need this right now, but could be useful in the future if we want to expand beyond just getting current
+                const startDate = (config.params.DAY_OBS_START || req.query.startDate || formatDate(utcOffset(new Date(), -1)) ) as string;
+                const endDate = (config.params.DAY_OBS_END || req.query.endDate || formatDate(utcOffset(new Date(), 0)) ) as string;
+                const overrideRunDate = (req.query.overrideRunDate || false ) as boolean;
+                const surveyStartDate = config.params.SURVEY_START_DATE as string;
+
+                let result = undefined;
+
+                if (!overrideRunDate) {
+                    result = await processStats(config, startDate, endDate, mode);
+                } else {
+                    result = await reaccumulateExposures(config, surveyStartDate, endDate, 30);
+                }
+                return res.json(result);
+            }
+            return res.status(400).send("Oopsies.");
+    }, config.tokens.AUTH_TOKEN);
 }
 
 ff.http("nightlydigest-stats", nightlyDigestStatsHandler);

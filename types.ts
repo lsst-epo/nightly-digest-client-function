@@ -44,3 +44,20 @@ export interface CachePayload {
     params: string | NightlyDigestParams;
     data: CleanedNightlyStats | NightlyDigestBaseResponse;
 }
+
+export interface Config {
+    endpoints: {
+        API_ENDPOINT: string;
+        CACHE_ENDPOINT: string;
+    };
+    tokens: {
+        REDIS_CACHE_TOKEN: string;
+        AUTH_TOKEN: string;
+    };
+    params: {
+        DAY_OBS_START: string;
+        DAY_OBS_END: string;
+        MODE: string;
+        SURVEY_START_DATE: string;
+    }
+}

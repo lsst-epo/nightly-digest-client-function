@@ -7,8 +7,14 @@ See [here](https://phalanx.lsst.io/environments/usdfdev/index.html#std-px-env-us
 Planned architecture
 ```mermaid
 graph LR
+
+    classDef person fill:#D9F7F6,stroke:#6A6E6E,color:#1F2121
+    classDef system fill:#B1F2EF,stroke:#6A6E6E,color:#1F2121
+    classDef container fill:#009FA1,stroke:#6A6E6E,color:#ffffff
+    classDef external fill:#0C4A47,stroke:#6A6E6E,color:#ffffff
+
     subgraph RedisClient
-        nightly-digest-stats["/nightly-digest-stats"]-->redis-current-stats["/current-stats"]
+        nightly-digest-stats["/nightly-digest-stats"]-->widgetsStats["/widgets"]
         
     end
 
@@ -22,14 +28,27 @@ graph LR
     end
 
     subgraph Hasura
-        nightlydigestRedisData
+        currentWidgetData
         
     end
     nightlydigestapi-->nightlydigest-stats-->nightly-digest-stats
-    redis-current-stats-->nightlydigestRedisData
+    widgetsStats-->currentWidgetData
     Hasura-->graphQL
+
+    class nightly-digest-stats,nightlydigest-stats,widgetsStats,currentWidgetData,graphQL container
+    class nightlydigestapi external
+
     
 ```
+
+## API description
+We make calls to the nightly digest api which we do not own.
+
+We support the following endpoints. All routes are require `Bearer` auth headers.
+- `/` - health check that should respond with 200 for a health authed request
+- `/nightly-digest-stats` - This has 2 modes depending on if `overrideRudDate` is passed as a query parameter:
+    - If so, we reaccumulate exposures from the `surveyStartDate`, chunked in 30 day requests out of respect to the API maintainers.
+    - otherwise, we simply get yesterday's data (unless overwritten by manually specifying the `startDate` and `endDate` query parameters)
 
 ## Deployment
 
@@ -56,6 +75,7 @@ sh deploy.sh
 - `NIGHTLY_DIGEST_CACHE_ENDPOINT` - redis endpoint to cache nightly digest values
 - `REDIS_CACHE_TOKEN` - bearer auth token required to cache values
 - `AUTH_TOKEN` - bearer auth token for the nightly digest cloud function itself
+- `SURVEY_START_DATE` - survey start date if we ever need to reaccumulate data from the nightly digest api
 
 ### Start Development Server
 Run local development server
