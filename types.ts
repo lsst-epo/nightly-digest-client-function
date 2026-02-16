@@ -22,8 +22,13 @@ export interface NightlyDigestExposure {
     [key: string]: unknown[] | unknown;
 }
 
+// just a convience types helpful for tests
+export interface SimpleExposure {
+    can_see_sky: string | null;
+    id: number | null;
+}
 export interface NightlyDigestBaseResponse {
-    exposures: NightlyDigestExposure[];
+    exposures: NightlyDigestExposure[] | SimpleExposure[];
     exposures_count: number | null;
     [key: string]: unknown[] | unknown;
 }
@@ -61,3 +66,4 @@ export interface Config {
         SURVEY_START_DATE: string;
     }
 }
+

@@ -18,18 +18,13 @@ import * as ff from '@google-cloud/functions-framework';
 import axios from 'axios';
 import 'dotenv/config';
 
+import { createRequest, createResponse, MockRequest, MockResponse } from 'node-mocks-http';
+
+
 jest.mock('axios'); // mock axios globally at top level to prevent accidental network calls
 import * as utils from './utils';
 
 const mockedAxios = axios as jest.Mocked<typeof axios>
-
-const req = {} as unknown as ff.Request;
-
-const res = {
-    status: jest.fn().mockReturnThis(),
-    json: jest.fn().mockReturnThis(),
-    send: jest.fn().mockReturnThis(),
-} as unknown as ff.Response;
 
 const createMockConfig = (overrides = {}): Config => ({
     endpoints: { API_ENDPOINT: 'http://api', CACHE_ENDPOINT: 'http://cache' },
@@ -38,10 +33,9 @@ const createMockConfig = (overrides = {}): Config => ({
     ...overrides
 });
 
-describe('Nightly Digest stats', () => {
+describe('nightly digest stats', () => {
 
     let config: Config;
-    const ENV = process.env;
     let API_ENDPOINT: string;
     let CACHE_ENDPOINT: string;
     let REDIS_CACHE_TOKEN: string;
@@ -50,6 +44,10 @@ describe('Nightly Digest stats', () => {
     let startDate: string;
     let endDate: string;
     let mode: string;
+
+    let req: MockRequest<ff.Request>;
+    let res: MockResponse<ff.Response>;
+
     beforeEach(() => {
         const now = new Date(Date.UTC(2026, 1, 9, 1, 30, 0)); // just set a fixed point in time so that this suite is reproducible
         jest.useFakeTimers().setSystemTime(now);
@@ -62,9 +60,14 @@ describe('Nightly Digest stats', () => {
         REDIS_CACHE_TOKEN = config.tokens.REDIS_CACHE_TOKEN as string;
         AUTH_TOKEN = config.tokens.AUTH_TOKEN as string;
 
-        const {DAY_OBS_START, DAY_OBS_END, MODE } = config.params;
+        const { MODE } = config.params;
         startDate = getFormattedDate();
         endDate = getFormattedDate(1);
+
+        req = createRequest({
+            method: 'GET'
+        }) as MockRequest<ff.Request>;
+        res = createResponse() as MockResponse<ff.Response>;
 
         mode = (MODE ?? req.query?.mode ?? 'current') as string; // probably don't need this right now, but could be useful in the future if we want to expand beyond just getting current
         jest.clearAllMocks();
@@ -110,11 +113,7 @@ describe('Nightly Digest stats', () => {
 
     describe('nightlyDigestStatsHandler()', () => {
         const mockRes = () => {
-            const res = {
-                status: jest.fn().mockReturnThis(),
-                send: jest.fn().mockReturnThis(),
-                json: jest.fn().mockReturnThis()
-            } as unknown as ff.Response;
+            res = createResponse() as MockResponse<ff.Response>;
             return res;
         }
         it('routes /nightly-digest-stats to processStats', async () => {
@@ -123,14 +122,15 @@ describe('Nightly Digest stats', () => {
 
             mockedAxios.get.mockResolvedValueOnce({ data: mockedResponseSuccess });
 
-            const req = { 
+            let req = createRequest({
+                method: 'GET',
                 path: "/nightly-digest-stats", 
                 headers: { authorization: `Bearer ${AUTH_TOKEN}` },
                 query: {
                     startDate: testStart,
                     endDate: testEnd
                 }
-            } as unknown as ff.Request;
+            }) as MockRequest<ff.Request>;
             
             const res = mockRes();
 
@@ -159,15 +159,17 @@ describe('Nightly Digest stats', () => {
                 .mockResolvedValueOnce({ data: { exposures: [], exposures_count: 10 } });
             mockedAxios.post.mockResolvedValue({ status: 200 });
 
-            const req = { 
+            const req = createRequest({
+                method: 'GET',
                 path: "/nightly-digest-stats", 
                 headers: { authorization: `Bearer ${AUTH_TOKEN}` },
                 query: {
                     startDate: testStart,
-                    endDate: testEnd, 
+                    endDate: testEnd,
                     overrideRunDate: 'true'
                 }
-            } as unknown as ff.Request;
+
+            }) as MockRequest<ff.Request>;
             
             const res = mockRes();
 
@@ -183,9 +185,8 @@ describe('Nightly Digest stats', () => {
                 })
             );
 
-            expect(res.json).toHaveBeenCalledWith(
-                expect.objectContaining({ exposure_count: 5 }) // we only want the first mock since 30 day range is the one sent by /night-digest-stats
-            );
+            const responseData = JSON.parse(res._getData());
+            expect(responseData.exposure_count).toBe(5);
 
             expect(mockedAxios.get).toHaveBeenCalledTimes(1);
         });
@@ -202,7 +203,7 @@ describe('Nightly Digest stats', () => {
                 .mockResolvedValueOnce({ data: { exposures: [], exposures_count: 10 } });
             mockedAxios.post.mockResolvedValue({ status: 200 });
 
-            const req = { 
+            const req = createRequest({
                 path: "/nightly-digest-stats", 
                 headers: { authorization: `Bearer ${AUTH_TOKEN}` },
                 query: {
@@ -210,9 +211,9 @@ describe('Nightly Digest stats', () => {
                     endDate: testEnd, 
                     overrideRunDate: 'true'
                 }
-            } as unknown as ff.Request;
+            }) as MockRequest<ff.Request>;
             
-            const res = mockRes();
+            const res = createResponse()
 
             await nightlyDigestStatsHandler(req, res);
 
@@ -226,31 +227,30 @@ describe('Nightly Digest stats', () => {
                 })
             );
 
-            expect(res.json).toHaveBeenCalledWith(
-                expect.objectContaining({ exposure_count: 15 }) // we want both mocks since we now have a date range of larger than 30 days
-            );
-
             expect(mockedAxios.get).toHaveBeenCalledTimes(2);
+
+            const responseData = JSON.parse(res._getData());
+            expect(responseData.exposure_count).toBe(15);
         });
 
         it('routes / to processStats', async () => {
-            const req = { path: "/", headers: { authorization: `Bearer ${AUTH_TOKEN}` } } as unknown as ff.Request;
-            const res = mockRes();
+            const req = createRequest({ path: "/", headers: { authorization: `Bearer ${AUTH_TOKEN}`}});
+            const res = createResponse({});
 
             await nightlyDigestStatsHandler(req, res);
-            
-            expect(res.send).toHaveBeenCalledWith("🐈‍⬛");
+
+            expect(res._getData()).toBe("🐈‍⬛"); 
             expect(mockedAxios.get).not.toHaveBeenCalled();
         })
 
         it('returns 400 for unknown paths', async () => {
-            const req = { path: '/unknown',  headers: { authorization: `Bearer ${AUTH_TOKEN}` } } as unknown as ff.Request;
+            const req = createRequest({path: '/unknown',  headers: { authorization: `Bearer ${AUTH_TOKEN}` }})
             const res = mockRes();
     
             await nightlyDigestStatsHandler(req, res);
     
-            expect(res.status).toHaveBeenCalledWith(400);
-            expect(res.send).toHaveBeenCalledWith("Oopsies.");
+            expect(res._getStatusCode()).toBe(400);
+            expect(res._getData()).toBe("Oopsies.");
         });
 
         it('still returns if cache fails', async () => {
@@ -285,15 +285,15 @@ describe('Nightly Digest stats', () => {
         it('should return the very last item in the exposures array', () => {
             const mockData = {
                 exposures: [
-                    { can_see_sky: false, id: 1 },
-                    { can_see_sky: true, id: 2 }
+                    { can_see_sky: "false", id: 1 },
+                    { can_see_sky: "true", id: 2 }
                 ],
                 exposures_count: 2
-            };
-            const result = extractCurrent(mockData as unknown as NightlyDigestBaseResponse);
+            } as NightlyDigestBaseResponse;
+            const result = extractCurrent(mockData);
 
-            expect(result.last_exposure).toEqual({ can_see_sky: true, id: 2 });
-            expect(result.last_can_see_sky).toBe(true);
+            expect(result.last_exposure).toEqual({ can_see_sky: "true", id: 2 });
+            expect(result.last_can_see_sky).toBe("true");
             expect(result.exposures_count).toBe(2);
         });
 
@@ -326,9 +326,6 @@ describe('Nightly Digest stats', () => {
         it('fetches data, extracts mode, caches result with full history', async () => {
             mockedAxios.get.mockResolvedValueOnce({ data: mockedResponseSuccess });
             mockedAxios.post.mockResolvedValueOnce({ status: 200 }) // for redis cache
-            const req = {
-                query: {mode: "full_history"}
-            } as unknown as ff.Request;
 
             await processStats(config, '20260129', '20260130', 'full_history');
         
@@ -342,9 +339,6 @@ describe('Nightly Digest stats', () => {
         it('uses "current" as default mode when query.mode is missing', async () => {
             mockedAxios.get.mockResolvedValueOnce({ data: mockedResponseSuccess });
             mockedAxios.post.mockResolvedValueOnce({ status: 200 });
-            
-            const req = { query: {} } as unknown as ff.Request;
-            const res = { json: jest.fn() } as unknown as ff.Response;
     
             await processStats(config, startDate, endDate, mode);
     
@@ -359,35 +353,9 @@ describe('Nightly Digest stats', () => {
             );
         });
 
-        it('missing req.query', async () => {
+        it('maps full_history mode correctly', async () => {
             mockedAxios.get.mockResolvedValue({ data: mockedResponseSuccess });
             mockedAxios.post.mockResolvedValue({ status: 200 });
-        
-            // req exists, but query is missing
-            const req = {} as unknown as ff.Request;
-            const res = { json: jest.fn() } as unknown as ff.Response;
-
-            await expect(
-                processStats(config, startDate, endDate, mode)
-            ).resolves.not.toThrow(); // don't throw an error because of the ?. operator
-        
-            expect(mockedAxios.post).toHaveBeenCalledWith(
-                expect.any(String),
-                expect.objectContaining({ params: 'current' }),
-                expect.objectContaining({
-                    headers: {
-                        'Authorization': `Bearer ${REDIS_CACHE_TOKEN}`
-                    }
-                })
-            );
-        });
-
-        it('uses the provided mode from query.mode', async () => {
-            mockedAxios.get.mockResolvedValue({ data: mockedResponseSuccess });
-            mockedAxios.post.mockResolvedValue({ status: 200 });
-        
-            const req = { query: { mode: 'full_history' } } as unknown as ff.Request;
-            const res = { json: jest.fn() } as unknown as ff.Response;
         
             await processStats(config, startDate, endDate, 'full_history');
         
@@ -410,9 +378,6 @@ describe('Nightly Digest stats', () => {
             mockedAxios.get.mockResolvedValueOnce({ data: dataWithFalseSky });
             mockedAxios.post.mockResolvedValueOnce({ status: 200 });
     
-            const req = { query: { mode: 'current' } } as unknown as ff.Request;
-            const res = { json: jest.fn() } as unknown as ff.Response;
-    
             const result = await processStats(config, startDate, endDate, mode);
 
             expect(result).toEqual({
@@ -429,9 +394,6 @@ describe('Nightly Digest stats', () => {
 
             mockedAxios.get.mockResolvedValueOnce({ data: dataMissingCount });
             mockedAxios.post.mockResolvedValueOnce({ status: 200 });
-
-            const req = { query: { mode: 'current' } } as unknown as ff.Request;
-            const res = { json: jest.fn() } as unknown as ff.Response;
 
             const result = await processStats(config, startDate, endDate, mode);
 
@@ -529,13 +491,23 @@ describe('Nightly Digest stats', () => {
 
 
 describe('nightlyDigestStatsHandler parameter resolution', () => {
+    let req: MockRequest<ff.Request>;
+    let res: MockResponse<ff.Response>;
+
+
+    beforeEach(() => {
+        const now = new Date(Date.UTC(2026, 1, 9, 1, 30, 0)); // set a fixed point in time so that this suite is reproducible
+        jest.useFakeTimers().setSystemTime(now);
+
+        jest.spyOn(utils, 'getConfig').mockReturnValue(createMockConfig()); 
+        req = createRequest({
+            method: 'GET'
+        }) as MockRequest<ff.Request>;
+        res = createResponse() as MockResponse<ff.Response>;
+
+        jest.clearAllMocks();
+    })
     const mockAuthToken = 'test-token';
-    
-    const getBaseReq = (query = {}) => ({
-        path: "/nightly-digest-stats",
-        headers: { authorization: `Bearer ${mockAuthToken}` },
-        query
-    } as unknown as ff.Request);
 
     it('prioritizes config.params over req.query', async () => {
         jest.spyOn(utils, 'getConfig').mockReturnValue({
@@ -550,12 +522,17 @@ describe('nightlyDigestStatsHandler parameter resolution', () => {
         });
 
         mockedAxios.get.mockResolvedValue({ data: mockedResponseSuccess });
-        const req = getBaseReq({ mode: 'query-mode' });
-        const res = { 
-            json: jest.fn(),
-            res: jest.fn(),
-            req: jest.fn()
-        } as any;
+
+        req = createRequest({
+            method: 'GET',
+            path: '/nightly-digest-stats',
+            query: {
+                mode: 'query-mode'
+            },
+            headers: {
+                authorization: `Bearer ${mockAuthToken}`
+            }
+        });
 
         await nightlyDigestStatsHandler(req, res);
 
@@ -578,12 +555,13 @@ describe('nightlyDigestStatsHandler parameter resolution', () => {
             endpoints: { API_ENDPOINT: 'http://api', CACHE_ENDPOINT: 'http://cache' }
         });
 
-        const req = getBaseReq({}); // Empty query
-        const res = { 
-            json: jest.fn(),
-            res: jest.fn(),
-            req: jest.fn()
-        } as any;
+        req = createRequest({
+            method: 'GET',
+            path: '/nightly-digest-stats',
+            headers: {
+                authorization: `Bearer ${mockAuthToken}`
+            }}
+        ); // no query params
 
         await nightlyDigestStatsHandler(req, res);
 
