@@ -104,8 +104,6 @@ export async function reaccumulateExposures(config: Config, surveyStartDateStr: 
         const dayEndStr = formatDate(utcOffset(currentDate, dateInterval));
 
         try {
-            console.log(`Processing: ${dayStartStr} -> ${dayEndStr}`);
-
             lastResult = await processStats(
                 config,
                 dayStartStr, 
@@ -116,8 +114,6 @@ export async function reaccumulateExposures(config: Config, surveyStartDateStr: 
             cleanedResult['dome_open'] = cleanedResult['dome_open']; 
             cleanedResult['exposure_count'] = Number(cleanedResult['exposure_count']) + Number(lastResult['exposure_count']); // each component should be guaranteed to default to 0
             
-            console.log(`currentDay: ${dayStartStr}, nextDay: ${dayEndStr}`);
-            console.log(`exposure_count: ${cleanedResult['exposure_count']}`);
         } catch (error) {
             console.error(`Error on ${dayStartStr}: `, error);
         }
@@ -168,7 +164,7 @@ export async function nightlyDigestStatsHandler (req: ff.Request, res: ff.Respon
                 }
                 return res.json(result);
             }
-            return res.status(400).send("Oopsies.");
+            return res.status(400).json({ status: "error", reason: "bad request" })
     }, config.tokens.AUTH_TOKEN);
 }
 
