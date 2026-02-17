@@ -66,8 +66,8 @@ describe('nightly digest stats', () => {
 
         req = createRequest({
             method: 'GET'
-        }) as MockRequest<ff.Request>;
-        res = createResponse() as MockResponse<ff.Response>;
+        });
+        res = createResponse();
 
         mode = (MODE ?? req.query?.mode ?? 'current') as string; // probably don't need this right now, but could be useful in the future if we want to expand beyond just getting current
         jest.clearAllMocks();
@@ -112,17 +112,17 @@ describe('nightly digest stats', () => {
 
 
     describe('nightlyDigestStatsHandler()', () => {
-        const mockRes = () => {
-            res = createResponse() as MockResponse<ff.Response>;
-            return res;
-        }
+        // const mockRes = () => {
+        //     res = createResponse();
+        //     return res;
+        // }
         it('routes /nightly-digest-stats to processStats', async () => {
             const testStart = '20260208';
             const testEnd = '20260209';
 
             mockedAxios.get.mockResolvedValueOnce({ data: mockedResponseSuccess });
 
-            let req = createRequest({
+            req = createRequest({
                 method: 'GET',
                 path: "/nightly-digest-stats", 
                 headers: { authorization: `Bearer ${AUTH_TOKEN}` },
@@ -130,9 +130,9 @@ describe('nightly digest stats', () => {
                     startDate: testStart,
                     endDate: testEnd
                 }
-            }) as MockRequest<ff.Request>;
+            });
             
-            const res = mockRes();
+            const res = createResponse();
 
             await nightlyDigestStatsHandler(req, res);
 
@@ -159,7 +159,7 @@ describe('nightly digest stats', () => {
                 .mockResolvedValueOnce({ data: { exposures: [], exposures_count: 10 } });
             mockedAxios.post.mockResolvedValue({ status: 200 });
 
-            const req = createRequest({
+            req = createRequest({
                 method: 'GET',
                 path: "/nightly-digest-stats", 
                 headers: { authorization: `Bearer ${AUTH_TOKEN}` },
@@ -169,9 +169,10 @@ describe('nightly digest stats', () => {
                     overrideRunDate: 'true'
                 }
 
-            }) as MockRequest<ff.Request>;
+            });
             
-            const res = mockRes();
+
+            const res = createResponse();
 
             await nightlyDigestStatsHandler(req, res);
 
@@ -203,7 +204,7 @@ describe('nightly digest stats', () => {
                 .mockResolvedValueOnce({ data: { exposures: [], exposures_count: 10 } });
             mockedAxios.post.mockResolvedValue({ status: 200 });
 
-            const req = createRequest({
+            req = createRequest({
                 path: "/nightly-digest-stats", 
                 headers: { authorization: `Bearer ${AUTH_TOKEN}` },
                 query: {
@@ -211,8 +212,7 @@ describe('nightly digest stats', () => {
                     endDate: testEnd, 
                     overrideRunDate: 'true'
                 }
-            }) as MockRequest<ff.Request>;
-            
+            });
             const res = createResponse()
 
             await nightlyDigestStatsHandler(req, res);
@@ -234,7 +234,7 @@ describe('nightly digest stats', () => {
         });
 
         it('routes / to processStats', async () => {
-            const req = createRequest({ path: "/", headers: { authorization: `Bearer ${AUTH_TOKEN}`}});
+            req = createRequest({ path: "/", headers: { authorization: `Bearer ${AUTH_TOKEN}`}});
             const res = createResponse({});
 
             await nightlyDigestStatsHandler(req, res);
@@ -244,13 +244,14 @@ describe('nightly digest stats', () => {
         })
 
         it('returns 400 for unknown paths', async () => {
-            const req = createRequest({path: '/unknown',  headers: { authorization: `Bearer ${AUTH_TOKEN}` }})
-            const res = mockRes();
+            req = createRequest({path: '/unknown',  headers: { authorization: `Bearer ${AUTH_TOKEN}` }})
+            const res = createResponse();
     
             await nightlyDigestStatsHandler(req, res);
     
             expect(res._getStatusCode()).toBe(400);
-            expect(res._getData()).toBe("Oopsies.");
+            const responseData = JSON.parse(res._getData());
+            expect(responseData.status).toBe("error");
         });
 
         it('still returns if cache fails', async () => {
@@ -502,8 +503,8 @@ describe('nightlyDigestStatsHandler parameter resolution', () => {
         jest.spyOn(utils, 'getConfig').mockReturnValue(createMockConfig()); 
         req = createRequest({
             method: 'GET'
-        }) as MockRequest<ff.Request>;
-        res = createResponse() as MockResponse<ff.Response>;
+        });
+        res = createResponse();
 
         jest.clearAllMocks();
     })
