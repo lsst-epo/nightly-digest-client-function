@@ -114,11 +114,8 @@ describe('nightly digest stats', () => {
 
 
     describe('nightlyDigestStatsHandler()', () => {
-        // const mockRes = () => {
-        //     res = createResponse();
-        //     return res;
-        // }
-        it('routes /nightly-digest-daily-stats to processStats', async () => {
+
+        it('routes /accumulated-exposure-count to processStats', async () => {
             const testStart = '20260208';
             const testEnd = '20260209';
 
@@ -126,7 +123,7 @@ describe('nightly digest stats', () => {
 
             req = createRequest({
                 method: 'GET',
-                path: "/nightly-digest-daily-stats", 
+                path: "/accumulated-exposure-count", 
                 headers: { authorization: `Bearer ${AUTH_TOKEN}` },
                 query: {
                     startDate: testStart,
@@ -150,7 +147,7 @@ describe('nightly digest stats', () => {
             );
         });
 
-        it('routes /nightly-digest-daily-stats to reaccumulateExposures if overrideRunDate is set and calls api once', async () => {
+        it('routes /accumulated-exposure-count to reaccumulateExposures if overrideRunDate is set and calls api once', async () => {
             const testStart = '20260101';
             const testEnd = '20260103';
 
@@ -163,7 +160,7 @@ describe('nightly digest stats', () => {
 
             req = createRequest({
                 method: 'GET',
-                path: "/nightly-digest-daily-stats", 
+                path: "/accumulated-exposure-count", 
                 headers: { authorization: `Bearer ${AUTH_TOKEN}` },
                 query: {
                     startDate: testStart,
@@ -195,7 +192,7 @@ describe('nightly digest stats', () => {
         });
 
 
-        it('routes /nightly-digest-daily-stats to reaccumulateExposures if overrideRunDate is set and calls api twice', async () => {
+        it('routes /accumulated-exposure-count to reaccumulateExposures if overrideRunDate is set and calls api twice', async () => {
             const testStart = '20260101';
             const testEnd = '20260203';
 
@@ -207,7 +204,7 @@ describe('nightly digest stats', () => {
             mockedAxios.post.mockResolvedValue({ status: 200 });
 
             req = createRequest({
-                path: "/nightly-digest-daily-stats", 
+                path: "/accumulated-exposure-count", 
                 headers: { authorization: `Bearer ${AUTH_TOKEN}` },
                 query: {
                     startDate: testStart,
@@ -528,7 +525,7 @@ describe('nightlyDigestStatsHandler parameter resolution', () => {
 
         req = createRequest({
             method: 'GET',
-            path: '/nightly-digest-daily-stats',
+            path: '/accumulated-exposure-count',
             query: {
                 mode: 'query-mode'
             },
@@ -560,7 +557,7 @@ describe('nightlyDigestStatsHandler parameter resolution', () => {
 
         req = createRequest({
             method: 'GET',
-            path: '/nightly-digest-daily-stats',
+            path: '/accumulated-exposure-count',
             headers: {
                 authorization: `Bearer ${mockAuthToken}`
             }}

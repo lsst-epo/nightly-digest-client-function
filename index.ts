@@ -147,7 +147,7 @@ export async function nightlyDigestStatsHandler (req: ff.Request, res: ff.Respon
             if (req.path == "/") {
                 return res.status(200).send("🐈‍⬛"); 
             }
-            if (req.path == "/nightly-digest-current-stats") {
+            if (req.path == "/current-exposure-count") {
                 const config = getConfig();
                 const mode = (config.params.MODE || req.query.mode || 'current') as string; // probably don't need this right now, but could be useful in the future if we want to expand beyond just getting current
                 const startDate = (config.params.DAY_OBS_START || req.query.startDate || formatDate(utcOffset(new Date(), -1)) ) as string;
@@ -159,7 +159,7 @@ export async function nightlyDigestStatsHandler (req: ff.Request, res: ff.Respon
                 result = await processStats(config, startDate, endDate, mode, cacheMode);
                 return res.json(result);
             }
-            if (req.path == "/nightly-digest-daily-stats") {
+            if (req.path == "/accumulated-exposure-count") {
                 const config = getConfig();
                 const mode = (config.params.MODE || req.query.mode || 'current') as string; // probably don't need this right now, but could be useful in the future if we want to expand beyond just getting current
                 const startDate = (config.params.DAY_OBS_START || req.query.startDate || formatDate(utcOffset(new Date(), -1)) ) as string;
