@@ -53,7 +53,7 @@ export interface CachePayload {
 export interface Config {
     endpoints: {
         API_ENDPOINT: string;
-        DAILY_CACHE_ENDPOINT: string;
+        ACCUMULATED_CACHE_ENDPOINT: string;
         CURRENT_CACHE_ENDPOINT: string;
     };
     tokens: {

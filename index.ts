@@ -7,7 +7,7 @@ import { getConfig, utcOffset, formatDate, parseYYYYMMDD, isNextDay} from './uti
 
 export async function cacheResult(config: Config, params: string | NightlyDigestParams, data: CleanedNightlyStats | NightlyDigestBaseResponse, startDate?: string, mode: string = 'current') {
     const endpoint = config.endpoints.API_ENDPOINT;
-    const dailyCacheEndpoint = config.endpoints.DAILY_CACHE_ENDPOINT;
+    const dailyCacheEndpoint = config.endpoints.ACCUMULATED_CACHE_ENDPOINT;
     const currentCacheEndpoint = config.endpoints.CURRENT_CACHE_ENDPOINT;
     const redisCacheToken = config.tokens.REDIS_CACHE_TOKEN;
 

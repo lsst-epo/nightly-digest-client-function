@@ -27,7 +27,7 @@ import * as utils from './utils';
 const mockedAxios = axios as jest.Mocked<typeof axios>
 
 const createMockConfig = (overrides = {}): Config => ({
-    endpoints: { API_ENDPOINT: 'http://api', DAILY_CACHE_ENDPOINT: 'http://cache', CURRENT_CACHE_ENDPOINT: 'http://cache2'  },
+    endpoints: { API_ENDPOINT: 'http://api', ACCUMULATED_CACHE_ENDPOINT: 'http://cache', CURRENT_CACHE_ENDPOINT: 'http://cache2'  },
     tokens: { REDIS_CACHE_TOKEN: 'token', AUTH_TOKEN: 'auth' },
     params: { SURVEY_START_DATE: '20260101', MODE: 'current', DAY_OBS_START: '', DAY_OBS_END: '' },
     ...overrides
@@ -37,7 +37,7 @@ describe('nightly digest stats', () => {
 
     let config: Config;
     let API_ENDPOINT: string;
-    let DAILY_CACHE_ENDPOINT: string;
+    let ACCUMULATED_CACHE_ENDPOINT: string;
     let CURRENT_CACHE_ENDPOINT: string;
     let REDIS_CACHE_TOKEN: string;
     let AUTH_TOKEN: string;
@@ -58,7 +58,7 @@ describe('nightly digest stats', () => {
         config = getConfig();
         API_ENDPOINT = config.endpoints.API_ENDPOINT!;
         CURRENT_CACHE_ENDPOINT = config.endpoints.CURRENT_CACHE_ENDPOINT!;
-        DAILY_CACHE_ENDPOINT = config.endpoints.DAILY_CACHE_ENDPOINT!;
+        ACCUMULATED_CACHE_ENDPOINT = config.endpoints.ACCUMULATED_CACHE_ENDPOINT!;
         REDIS_CACHE_TOKEN = config.tokens.REDIS_CACHE_TOKEN as string;
         AUTH_TOKEN = config.tokens.AUTH_TOKEN as string;
 
@@ -518,7 +518,7 @@ describe('nightlyDigestStatsHandler parameter resolution', () => {
                 DAY_OBS_END: ''
             },
             tokens: { AUTH_TOKEN: mockAuthToken, REDIS_CACHE_TOKEN: 'token' },
-            endpoints: { API_ENDPOINT: 'http://api', DAILY_CACHE_ENDPOINT: 'http://cache', CURRENT_CACHE_ENDPOINT: 'http://cache' }
+            endpoints: { API_ENDPOINT: 'http://api', ACCUMULATED_CACHE_ENDPOINT: 'http://cache', CURRENT_CACHE_ENDPOINT: 'http://cache' }
         });
 
         mockedAxios.get.mockResolvedValue({ data: mockedResponseSuccess });
@@ -552,7 +552,7 @@ describe('nightlyDigestStatsHandler parameter resolution', () => {
         jest.spyOn(utils, 'getConfig').mockReturnValue({
             params: { SURVEY_START_DATE: '20260101', MODE: '', DAY_OBS_START: '', DAY_OBS_END: '' },
             tokens: { AUTH_TOKEN: mockAuthToken, REDIS_CACHE_TOKEN: 'token' },
-            endpoints: { API_ENDPOINT: 'http://api', DAILY_CACHE_ENDPOINT: 'http://cache', CURRENT_CACHE_ENDPOINT: 'http://cache' }
+            endpoints: { API_ENDPOINT: 'http://api', ACCUMULATED_CACHE_ENDPOINT: 'http://cache', CURRENT_CACHE_ENDPOINT: 'http://cache' }
         });
 
         req = createRequest({
