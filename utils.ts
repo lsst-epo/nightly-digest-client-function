@@ -45,7 +45,8 @@ export const getConfig = () => {
     return {
         endpoints: {
             API_ENDPOINT: process.env.NIGHTLY_DIGEST_API_ENDPOINT as string,
-            CACHE_ENDPOINT: process.env.NIGHTLY_DIGEST_CACHE_ENDPOINT as string
+            DAILY_CACHE_ENDPOINT: process.env.NIGHTLY_DIGEST_DAILY_CACHE_ENDPOINT as string,
+            CURRENT_CACHE_ENDPOINT: process.env.NIGHTLY_DIGEST_CURRENT_CACHE_ENDPOINT as string
         },
         tokens: {
             REDIS_CACHE_TOKEN: process.env.REDIS_CACHE_TOKEN as string,

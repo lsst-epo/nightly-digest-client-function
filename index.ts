@@ -5,10 +5,13 @@ import { NightlyDigestBaseResponse, NightlyDigestParams, CleanedNightlyStats, Co
 import { NextFunction } from 'express';
 import { getConfig, utcOffset, formatDate, parseYYYYMMDD, isNextDay} from './utils';
 
-export async function cacheResult(config: Config, params: string | NightlyDigestParams, data: CleanedNightlyStats | NightlyDigestBaseResponse, startDate?: string) {
+export async function cacheResult(config: Config, params: string | NightlyDigestParams, data: CleanedNightlyStats | NightlyDigestBaseResponse, startDate?: string, mode: string = 'current') {
     const endpoint = config.endpoints.API_ENDPOINT;
-    const cacheEndpoint = config.endpoints.CACHE_ENDPOINT;
+    const dailyCacheEndpoint = config.endpoints.DAILY_CACHE_ENDPOINT;
+    const currentCacheEndpoint = config.endpoints.CURRENT_CACHE_ENDPOINT;
     const redisCacheToken = config.tokens.REDIS_CACHE_TOKEN;
+
+    const cacheEndpoint = (mode == 'current') ? currentCacheEndpoint : dailyCacheEndpoint ;
     
     try {
         const payload = { endpoint: endpoint, params: params, data: data, startDate: startDate }
@@ -66,7 +69,7 @@ export async function fetchNightlyDigestData<T>(endpoint: string, startDate: str
     }
 }
 
-export async function processStats(config: Config, startDate: string, endDate: string, mode: string) {
+export async function processStats(config: Config, startDate: string, endDate: string, mode: string, cacheMode: string = 'current') {
     const { API_ENDPOINT } = config.endpoints;
     
     const data = await fetchNightlyDigestData<NightlyDigestBaseResponse>(API_ENDPOINT, startDate, endDate);
@@ -79,7 +82,7 @@ export async function processStats(config: Config, startDate: string, endDate: s
 
     const bucketDate = isNextDay(startDate, endDate) ? startDate : undefined;
 
-    await cacheResult(config, mode, cleanedResult, bucketDate); 
+    await cacheResult(config, mode, cleanedResult, bucketDate, cacheMode); 
     return cleanedResult;
 
 }
@@ -104,7 +107,8 @@ export async function reaccumulateExposures(config: Config, surveyStartDateStr: 
                 config,
                 dayStartStr, 
                 dayEndStr, 
-                'reaccumulate'
+                'reaccumulate',
+                'daily'
             );
 
             cleanedResult['dome_open'] = cleanedResult['dome_open']; 
@@ -143,7 +147,19 @@ export async function nightlyDigestStatsHandler (req: ff.Request, res: ff.Respon
             if (req.path == "/") {
                 return res.status(200).send("🐈‍⬛"); 
             }
-            if (req.path == "/nightly-digest-stats") {
+            if (req.path == "/nightly-digest-current-stats") {
+                const config = getConfig();
+                const mode = (config.params.MODE || req.query.mode || 'current') as string; // probably don't need this right now, but could be useful in the future if we want to expand beyond just getting current
+                const startDate = (config.params.DAY_OBS_START || req.query.startDate || formatDate(utcOffset(new Date(), -1)) ) as string;
+                const endDate = (config.params.DAY_OBS_END || req.query.endDate || formatDate(utcOffset(new Date(), 0)) ) as string;
+
+                const cacheMode = 'current';
+                
+                let result = undefined;
+                result = await processStats(config, startDate, endDate, mode, cacheMode);
+                return res.json(result);
+            }
+            if (req.path == "/nightly-digest-daily-stats") {
                 const config = getConfig();
                 const mode = (config.params.MODE || req.query.mode || 'current') as string; // probably don't need this right now, but could be useful in the future if we want to expand beyond just getting current
                 const startDate = (config.params.DAY_OBS_START || req.query.startDate || formatDate(utcOffset(new Date(), -1)) ) as string;
@@ -151,10 +167,11 @@ export async function nightlyDigestStatsHandler (req: ff.Request, res: ff.Respon
                 const overrideRunDate = (req.query.overrideRunDate || false ) as boolean;
                 const surveyStartDate = config.params.SURVEY_START_DATE as string;
 
-                let result = undefined;
+                const cacheMode = 'daily';
 
+                let result = undefined;
                 if (!overrideRunDate) {
-                    result = await processStats(config, startDate, endDate, mode);
+                    result = await processStats(config, startDate, endDate, mode, cacheMode);
                 } else {
                     result = await reaccumulateExposures(config, surveyStartDate, endDate, 30);
                 }

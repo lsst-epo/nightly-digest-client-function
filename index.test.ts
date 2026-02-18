@@ -27,7 +27,7 @@ import * as utils from './utils';
 const mockedAxios = axios as jest.Mocked<typeof axios>
 
 const createMockConfig = (overrides = {}): Config => ({
-    endpoints: { API_ENDPOINT: 'http://api', CACHE_ENDPOINT: 'http://cache' },
+    endpoints: { API_ENDPOINT: 'http://api', DAILY_CACHE_ENDPOINT: 'http://cache', CURRENT_CACHE_ENDPOINT: 'http://cache2'  },
     tokens: { REDIS_CACHE_TOKEN: 'token', AUTH_TOKEN: 'auth' },
     params: { SURVEY_START_DATE: '20260101', MODE: 'current', DAY_OBS_START: '', DAY_OBS_END: '' },
     ...overrides
@@ -37,7 +37,8 @@ describe('nightly digest stats', () => {
 
     let config: Config;
     let API_ENDPOINT: string;
-    let CACHE_ENDPOINT: string;
+    let DAILY_CACHE_ENDPOINT: string;
+    let CURRENT_CACHE_ENDPOINT: string;
     let REDIS_CACHE_TOKEN: string;
     let AUTH_TOKEN: string;
 
@@ -56,7 +57,8 @@ describe('nightly digest stats', () => {
 
         config = getConfig();
         API_ENDPOINT = config.endpoints.API_ENDPOINT!;
-        CACHE_ENDPOINT = config.endpoints.CACHE_ENDPOINT!;
+        CURRENT_CACHE_ENDPOINT = config.endpoints.CURRENT_CACHE_ENDPOINT!;
+        DAILY_CACHE_ENDPOINT = config.endpoints.DAILY_CACHE_ENDPOINT!;
         REDIS_CACHE_TOKEN = config.tokens.REDIS_CACHE_TOKEN as string;
         AUTH_TOKEN = config.tokens.AUTH_TOKEN as string;
 
@@ -116,7 +118,7 @@ describe('nightly digest stats', () => {
         //     res = createResponse();
         //     return res;
         // }
-        it('routes /nightly-digest-stats to processStats', async () => {
+        it('routes /nightly-digest-daily-stats to processStats', async () => {
             const testStart = '20260208';
             const testEnd = '20260209';
 
@@ -124,7 +126,7 @@ describe('nightly digest stats', () => {
 
             req = createRequest({
                 method: 'GET',
-                path: "/nightly-digest-stats", 
+                path: "/nightly-digest-daily-stats", 
                 headers: { authorization: `Bearer ${AUTH_TOKEN}` },
                 query: {
                     startDate: testStart,
@@ -148,7 +150,7 @@ describe('nightly digest stats', () => {
             );
         });
 
-        it('routes /nightly-digest-stats to reaccumulateExposures if overrideRunDate is set and calls api once', async () => {
+        it('routes /nightly-digest-daily-stats to reaccumulateExposures if overrideRunDate is set and calls api once', async () => {
             const testStart = '20260101';
             const testEnd = '20260103';
 
@@ -161,7 +163,7 @@ describe('nightly digest stats', () => {
 
             req = createRequest({
                 method: 'GET',
-                path: "/nightly-digest-stats", 
+                path: "/nightly-digest-daily-stats", 
                 headers: { authorization: `Bearer ${AUTH_TOKEN}` },
                 query: {
                     startDate: testStart,
@@ -193,7 +195,7 @@ describe('nightly digest stats', () => {
         });
 
 
-        it('routes /nightly-digest-stats to reaccumulateExposures if overrideRunDate is set and calls api twice', async () => {
+        it('routes /nightly-digest-daily-stats to reaccumulateExposures if overrideRunDate is set and calls api twice', async () => {
             const testStart = '20260101';
             const testEnd = '20260203';
 
@@ -205,7 +207,7 @@ describe('nightly digest stats', () => {
             mockedAxios.post.mockResolvedValue({ status: 200 });
 
             req = createRequest({
-                path: "/nightly-digest-stats", 
+                path: "/nightly-digest-daily-stats", 
                 headers: { authorization: `Bearer ${AUTH_TOKEN}` },
                 query: {
                     startDate: testStart,
@@ -519,14 +521,14 @@ describe('nightlyDigestStatsHandler parameter resolution', () => {
                 DAY_OBS_END: ''
             },
             tokens: { AUTH_TOKEN: mockAuthToken, REDIS_CACHE_TOKEN: 'token' },
-            endpoints: { API_ENDPOINT: 'http://api', CACHE_ENDPOINT: 'http://cache' }
+            endpoints: { API_ENDPOINT: 'http://api', DAILY_CACHE_ENDPOINT: 'http://cache', CURRENT_CACHE_ENDPOINT: 'http://cache' }
         });
 
         mockedAxios.get.mockResolvedValue({ data: mockedResponseSuccess });
 
         req = createRequest({
             method: 'GET',
-            path: '/nightly-digest-stats',
+            path: '/nightly-digest-daily-stats',
             query: {
                 mode: 'query-mode'
             },
@@ -553,12 +555,12 @@ describe('nightlyDigestStatsHandler parameter resolution', () => {
         jest.spyOn(utils, 'getConfig').mockReturnValue({
             params: { SURVEY_START_DATE: '20260101', MODE: '', DAY_OBS_START: '', DAY_OBS_END: '' },
             tokens: { AUTH_TOKEN: mockAuthToken, REDIS_CACHE_TOKEN: 'token' },
-            endpoints: { API_ENDPOINT: 'http://api', CACHE_ENDPOINT: 'http://cache' }
+            endpoints: { API_ENDPOINT: 'http://api', DAILY_CACHE_ENDPOINT: 'http://cache', CURRENT_CACHE_ENDPOINT: 'http://cache' }
         });
 
         req = createRequest({
             method: 'GET',
-            path: '/nightly-digest-stats',
+            path: '/nightly-digest-daily-stats',
             headers: {
                 authorization: `Bearer ${mockAuthToken}`
             }}

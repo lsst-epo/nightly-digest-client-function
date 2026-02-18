@@ -53,7 +53,8 @@ export interface CachePayload {
 export interface Config {
     endpoints: {
         API_ENDPOINT: string;
-        CACHE_ENDPOINT: string;
+        DAILY_CACHE_ENDPOINT: string;
+        CURRENT_CACHE_ENDPOINT: string;
     };
     tokens: {
         REDIS_CACHE_TOKEN: string;
