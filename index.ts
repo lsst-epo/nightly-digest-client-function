@@ -47,8 +47,6 @@ export async function fetchNightlyDigestData<T>(endpoint: string, startDate: str
     const bearerToken = process.env.NIGHTLY_DIGEST_API_TOKEN
     const instrument = "LSSTCam"
 
-    console.log(`startDate: ${startDate}, endDate: ${endDate}`);
-
     try {
         const response = await axios.get(endpoint, {
             headers: {
@@ -97,8 +95,6 @@ export async function reaccumulateExposures(config: Config, surveyStartDateStr: 
 
     let lastResult: CleanedNightlyStats | null = null;
     
-    console.log(`reaccumlating from ${currentDate} to ${endDate}`);
-
     while(currentDate < endDate) {
         const dayStartStr = formatDate(currentDate);
         const dayEndStr = formatDate(utcOffset(currentDate, dateInterval));
