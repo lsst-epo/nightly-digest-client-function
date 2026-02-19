@@ -14,7 +14,8 @@ graph LR
     classDef external fill:#0C4A47,stroke:#6A6E6E,color:#ffffff
 
     subgraph RedisClient
-        nightly-digest-stats["/nightly-digest-stats"]-->widgetsStats["/widgets"]
+        current-stats["/current-exposure-count"]-->widgetsStats["/widgets"]
+        accumulated-stats["/accumulated-exposure-count"]-->widgetsStats["/widgets"]
         
     end
 
@@ -24,18 +25,20 @@ graph LR
     end
 
     subgraph nightlydigestclient
-        nightlydigest-stats["/nightly-digest-stats"]
+        current-exposure-count["/current-exposure-count"]
+        accumulated-exposure-count["/accumulated-exposure-count"]
     end
 
     subgraph Hasura
         currentWidgetData
         
     end
-    nightlydigestapi-->nightlydigest-stats-->nightly-digest-stats
+    nightlydigestapi-->current-exposure-count-->current-stats
+    nightlydigestapi-->accumulated-exposure-count-->accumulated-stats
     widgetsStats-->currentWidgetData
     Hasura-->graphQL
 
-    class nightly-digest-stats,nightlydigest-stats,widgetsStats,currentWidgetData,graphQL container
+    class nightly-digest-stats,current-exposure-count,accumulated-exposure-count,current-stats,accumulated-stats,widgetsStats,currentWidgetData,graphQL container
     class nightlydigestapi external
 
     
@@ -46,7 +49,8 @@ We make calls to the nightly digest api which we do not own.
 
 We support the following endpoints. All routes are require `Bearer` auth headers.
 - `/` - health check that should respond with 200 for a health authed request
-- `/nightly-digest-stats` - This has 2 modes depending on if `overrideRudDate` is passed as a query parameter:
+- `/current-exposure-count` - This endpoint is for the last seen exposures. This runs every minute.
+- `/accumulated-exposure-count` - This endpoint is for the accumulated exposures since the lifetime of the survey, using the same source data as the `/current-exposure-count`. This runs once per day. This has 2 modes depending on if `overrideRunDate` is passed as a query parameter:
     - If so, we reaccumulate exposures from the `surveyStartDate`, chunked in 30 day requests out of respect to the API maintainers.
     - otherwise, we simply get yesterday's data (unless overwritten by manually specifying the `startDate` and `endDate` query parameters)
 
@@ -72,7 +76,8 @@ sh deploy.sh
 ### Environment variables
 - `NIGHTLY_DIGEST_API_TOKEN` - token for the nightly digest api
 - `NIGHTLY_DIGEST_API_ENDPOINT` - nightly digest api endpoint where the data is sourced
-- `NIGHTLY_DIGEST_CACHE_ENDPOINT` - redis endpoint to cache nightly digest values
+- `NIGHTLY_DIGEST_CURRENT_CACHE_ENDPOINT` - redis endpoint to cache nightly digest values many times a day
+- `NIGHTLY_DIGEST_ACCUMULATED_CACHE_ENDPOINT` - redis endpoint to cache accumulated nightly digest values over the lifetime of the survey
 - `REDIS_CACHE_TOKEN` - bearer auth token required to cache values
 - `AUTH_TOKEN` - bearer auth token for the nightly digest cloud function itself
 - `SURVEY_START_DATE` - survey start date if we ever need to reaccumulate data from the nightly digest api
