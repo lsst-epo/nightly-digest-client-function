@@ -144,14 +144,13 @@ export async function nightlyDigestStatsHandler (req: ff.Request, res: ff.Respon
         req,
         res, 
         async () => {
+            const mode = (config.params.MODE || req.query.mode || 'current') as string; // probably don't need this right now, but could be useful in the future if we want to expand beyond just getting current
+            const startDate = (config.params.DAY_OBS_START || req.query.startDate || formatDate(utcOffset(new Date(), -1)) ) as string;
+            const endDate = (config.params.DAY_OBS_END || req.query.endDate || formatDate(utcOffset(new Date(), 0)) ) as string;
             if (req.path == "/") {
                 return res.status(200).send("🐈‍⬛"); 
             }
             if (req.path == "/current-exposure-count") {
-                const mode = (config.params.MODE || req.query.mode || 'current') as string; // probably don't need this right now, but could be useful in the future if we want to expand beyond just getting current
-                const startDate = (config.params.DAY_OBS_START || req.query.startDate || formatDate(utcOffset(new Date(), -1)) ) as string;
-                const endDate = (config.params.DAY_OBS_END || req.query.endDate || formatDate(utcOffset(new Date(), 0)) ) as string;
-
                 const cacheMode = 'current';
                 
                 let result = undefined;
@@ -159,9 +158,6 @@ export async function nightlyDigestStatsHandler (req: ff.Request, res: ff.Respon
                 return res.json(result);
             }
             if (req.path == "/accumulated-exposure-count") {
-                const mode = (config.params.MODE || req.query.mode || 'current') as string; // probably don't need this right now, but could be useful in the future if we want to expand beyond just getting current
-                const startDate = (config.params.DAY_OBS_START || req.query.startDate || formatDate(utcOffset(new Date(), -1)) ) as string;
-                const endDate = (config.params.DAY_OBS_END || req.query.endDate || formatDate(utcOffset(new Date(), 0)) ) as string;
                 const overrideRunDate = (req.query.overrideRunDate || false ) as boolean;
                 const surveyStartDate = config.params.SURVEY_START_DATE as string;
 
