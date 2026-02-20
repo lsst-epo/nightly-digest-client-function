@@ -4,7 +4,6 @@ import {
     extractCurrent, 
     fetchNightlyDigestData,
     reaccumulateExposures,
-    bearerAuth,
     cacheResult
 } from './index';
 import {
@@ -593,66 +592,6 @@ describe('nightlyDigestStatsHandler parameter resolution', () => {
         expect(result).toBeNull();
     
         consoleSpy.mockRestore();
-    });
-});
-
-describe('bearerAuth()', () => {
-    const AUTH_TOKEN = 'token';
-    let mockReq: any;
-    let mockRes: any;
-    let next: jest.Mock;
-
-    beforeEach(() => {
-        next = jest.fn();
-        mockRes = {
-            status: jest.fn().mockReturnThis(),
-            json: jest.fn().mockReturnThis(),
-        };
-    });
-
-    it('returns 401 if Authorization header is missing', () => {
-        mockReq = { headers: {} }; // No authorization header
-
-        bearerAuth(mockReq, mockRes, next, AUTH_TOKEN);
-
-        expect(mockRes.status).toHaveBeenCalledWith(401);
-        expect(mockRes.json).toHaveBeenCalledWith({ error: "Unauthorized: Missing Bearer Token" });
-        expect(next).not.toHaveBeenCalled();
-    });
-
-    it('returns 401 if Authorization header does not start with Bearer', () => {
-        mockReq = { 
-            headers: { authorization: 'Basic blah' } 
-        };
-
-        bearerAuth(mockReq, mockRes, next, AUTH_TOKEN);
-
-        expect(mockRes.status).toHaveBeenCalledWith(401);
-        expect(mockRes.json).toHaveBeenCalledWith({ error: "Unauthorized: Missing Bearer Token" });
-        expect(next).not.toHaveBeenCalled();
-    });
-
-    it('returns 401 if token does not match authToken', () => {
-        mockReq = { 
-            headers: { authorization: 'Bearer blah' } // 'blah' is not 'token'
-        };
-
-        bearerAuth(mockReq, mockRes, next, AUTH_TOKEN);
-
-        expect(mockRes.status).toHaveBeenCalledWith(401);
-        expect(mockRes.json).toHaveBeenCalledWith({ error: "Unauthorized: Invalid Token" });
-        expect(next).not.toHaveBeenCalled();
-    });
-
-    it('calls next() if token is valid', () => {
-        mockReq = { 
-            headers: { authorization: `Bearer ${AUTH_TOKEN}` } 
-        };
-
-        bearerAuth(mockReq, mockRes, next, AUTH_TOKEN);
-
-        expect(next).toHaveBeenCalled();
-        expect(mockRes.status).not.toHaveBeenCalled();
     });
 });
 

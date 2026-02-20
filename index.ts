@@ -122,57 +122,49 @@ export async function reaccumulateExposures(config: Config, surveyStartDateStr: 
     return cleanedResult;
 }
 
-export function bearerAuth(req: ff.Request, res: ff.Response, next: NextFunction, authToken: string) {
-    const authHeader = req.headers.authorization;
-    if (!authHeader?.startsWith('Bearer ')) {
-        return res.status(401).json({error: "Unauthorized: Missing Bearer Token"});
-    }
-
-    const token = authHeader.split(' ')[1];
-
-    if (token !== authToken as string) {
-        return res.status(401).json({error: "Unauthorized: Invalid Token"});
-    }
-
-    return next();
-}
-
 export async function nightlyDigestStatsHandler (req: ff.Request, res: ff.Response) {
     const config = getConfig();
 
-    return bearerAuth(
-        req,
-        res, 
-        async () => {
-            const mode = (config.params.MODE || req.query.mode || 'current') as string; // probably don't need this right now, but could be useful in the future if we want to expand beyond just getting current
-            const startDate = (config.params.DAY_OBS_START || req.query.startDate || formatDate(utcOffset(new Date(), -1)) ) as string;
-            const endDate = (config.params.DAY_OBS_END || req.query.endDate || formatDate(utcOffset(new Date(), 0)) ) as string;
-            if (req.path == "/") {
-                return res.status(200).send("🐈‍⬛"); 
-            }
-            if (req.path == "/current-exposure-count") {
-                const cacheMode = 'current';
-                
-                let result = undefined;
-                result = await processStats(config, startDate, endDate, mode, cacheMode);
-                return res.json(result);
-            }
-            if (req.path == "/accumulated-exposure-count") {
-                const overrideRunDate = (req.query.overrideRunDate || false ) as boolean;
-                const surveyStartDate = config.params.SURVEY_START_DATE as string;
+    // check auth
+    const authHeader = req.headers.authorization;
+    const BEARER_TOKEN = process.env.AUTH_TOKEN;
 
-                const cacheMode = 'daily';
+    if (!authHeader || authHeader !== `Bearer ${BEARER_TOKEN}`) {
+        console.error('Unauthorized attempt');
+        return res.status(401).json({
+            status: "ERROR",
+            message: "Unauthorized: Missing or invalid token."
+        })
+    }
 
-                let result = undefined;
-                if (!overrideRunDate) {
-                    result = await processStats(config, startDate, endDate, mode, cacheMode);
-                } else {
-                    result = await reaccumulateExposures(config, surveyStartDate, endDate, 30);
-                }
-                return res.json(result);
-            }
-            return res.status(400).json({ status: "error", reason: "bad request" })
-    }, config.tokens.AUTH_TOKEN);
+    const mode = (config.params.MODE || req.query.mode || 'current') as string; // probably don't need this right now, but could be useful in the future if we want to expand beyond just getting current
+    const startDate = (config.params.DAY_OBS_START || req.query.startDate || formatDate(utcOffset(new Date(), -1)) ) as string;
+    const endDate = (config.params.DAY_OBS_END || req.query.endDate || formatDate(utcOffset(new Date(), 0)) ) as string;
+    if (req.path == "/") {
+        return res.status(200).send("🐈‍⬛"); 
+    }
+    if (req.path == "/current-exposure-count") {
+        const cacheMode = 'current';
+        
+        let result = undefined;
+        result = await processStats(config, startDate, endDate, mode, cacheMode);
+        return res.json(result);
+    }
+    if (req.path == "/accumulated-exposure-count") {
+        const overrideRunDate = (req.query.overrideRunDate || false ) as boolean;
+        const surveyStartDate = config.params.SURVEY_START_DATE as string;
+
+        const cacheMode = 'daily';
+
+        let result = undefined;
+        if (!overrideRunDate) {
+            result = await processStats(config, startDate, endDate, mode, cacheMode);
+        } else {
+            result = await reaccumulateExposures(config, surveyStartDate, endDate, 30);
+        }
+        return res.json(result);
+    }
+    return res.status(400).json({ status: "error", reason: "bad request" })
 }
 
 ff.http("nightlydigest-stats", nightlyDigestStatsHandler);
