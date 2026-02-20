@@ -127,7 +127,7 @@ export async function nightlyDigestStatsHandler (req: ff.Request, res: ff.Respon
 
     // check auth
     const authHeader = req.headers.authorization;
-    const BEARER_TOKEN = process.env.AUTH_TOKEN;
+    const BEARER_TOKEN = config.tokens.AUTH_TOKEN;
 
     if (!authHeader || authHeader !== `Bearer ${BEARER_TOKEN}`) {
         console.error('Unauthorized attempt');
