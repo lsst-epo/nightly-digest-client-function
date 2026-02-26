@@ -35,8 +35,7 @@ export async function cacheResult(config: Config, params: string | NightlyDigest
 
 // get last exposure along with exposure_count
 export function extractCurrent(data: NightlyDigestBaseResponse) {
-    const { exposures, exposures_count: exposuresCount } = data;
-
+    const { exposures, on_sky_exposures_count: exposuresCount } = data; // exposures_count is all exposures, on_sky_exposures_count is the more relevant count 
     const lastExposure = exposures.length > 0 ? exposures[exposures.length - 1] : null;
 
     return {
