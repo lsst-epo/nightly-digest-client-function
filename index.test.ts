@@ -272,7 +272,6 @@ describe('nightly digest stats', () => {
         it('should return null for last_exposure if exposures array is empty', () => {
             const mockData = { 
                 exposures: [], 
-                exposures_count: 0,
                 on_sky_exposures_count: 0
             };
             const result = extractCurrent(mockData as NightlyDigestBaseResponse);
@@ -288,7 +287,6 @@ describe('nightly digest stats', () => {
                     { can_see_sky: "false", id: 1 },
                     { can_see_sky: "true", id: 2 }
                 ],
-                exposures_count: 2,
                 on_sky_exposures_count: 3
             } as NightlyDigestBaseResponse;
             const result = extractCurrent(mockData);
