@@ -153,8 +153,8 @@ describe('nightly digest stats', () => {
             mockedAxios.get.mockReset(); 
             mockedAxios.post.mockReset();
             mockedAxios.get
-                .mockResolvedValueOnce({ data: { exposures: [], exposures_count: 5 } })
-                .mockResolvedValueOnce({ data: { exposures: [], exposures_count: 10 } });
+                .mockResolvedValueOnce({ data: { exposures: [], exposures_count: 5, on_sky_exposures_count: 3 } })
+                .mockResolvedValueOnce({ data: { exposures: [], exposures_count: 10, on_sky_exposures_count: 10 } });
             mockedAxios.post.mockResolvedValue({ status: 200 });
 
             req = createRequest({
@@ -185,7 +185,7 @@ describe('nightly digest stats', () => {
             );
 
             const responseData = JSON.parse(res._getData());
-            expect(responseData.exposure_count).toBe(5);
+            expect(responseData.exposure_count).toBe(3);
 
             expect(mockedAxios.get).toHaveBeenCalledTimes(1);
         });
@@ -198,8 +198,8 @@ describe('nightly digest stats', () => {
             mockedAxios.get.mockReset(); 
             mockedAxios.post.mockReset();
             mockedAxios.get
-                .mockResolvedValueOnce({ data: { exposures: [], exposures_count: 5 } })
-                .mockResolvedValueOnce({ data: { exposures: [], exposures_count: 10 } });
+                .mockResolvedValueOnce({ data: { exposures: [], exposures_count: 5, on_sky_exposures_count: 3 } })
+                .mockResolvedValueOnce({ data: { exposures: [], exposures_count: 10, on_sky_exposures_count: 6 } });
             mockedAxios.post.mockResolvedValue({ status: 200 });
 
             req = createRequest({
@@ -228,7 +228,7 @@ describe('nightly digest stats', () => {
             expect(mockedAxios.get).toHaveBeenCalledTimes(2);
 
             const responseData = JSON.parse(res._getData());
-            expect(responseData.exposure_count).toBe(15);
+            expect(responseData.exposure_count).toBe(9); // 3 + 6
         });
 
         it('routes / to processStats', async () => {
@@ -272,7 +272,8 @@ describe('nightly digest stats', () => {
         it('should return null for last_exposure if exposures array is empty', () => {
             const mockData = { 
                 exposures: [], 
-                exposures_count: 0 
+                exposures_count: 0,
+                on_sky_exposures_count: 0
             };
             const result = extractCurrent(mockData as NightlyDigestBaseResponse);
 
@@ -287,13 +288,14 @@ describe('nightly digest stats', () => {
                     { can_see_sky: "false", id: 1 },
                     { can_see_sky: "true", id: 2 }
                 ],
-                exposures_count: 2
+                exposures_count: 2,
+                on_sky_exposures_count: 3
             } as NightlyDigestBaseResponse;
             const result = extractCurrent(mockData);
 
             expect(result.last_exposure).toEqual({ can_see_sky: "true", id: 2 });
             expect(result.last_can_see_sky).toBe("true");
-            expect(result.exposures_count).toBe(2);
+            expect(result.exposures_count).toBe(3);
         });
 
         it('should fallback to defaults when properties are missing', () => {
@@ -372,7 +374,8 @@ describe('nightly digest stats', () => {
         it('maps can_see_sky false to null for dome_open', async () => {
             const dataWithFalseSky = {
                 exposures: [{ can_see_sky: false }],
-                exposures_count: 95
+                exposures_count: 95,
+                on_sky_exposures_count: 65
             };
             mockedAxios.get.mockResolvedValueOnce({ data: dataWithFalseSky });
             mockedAxios.post.mockResolvedValueOnce({ status: 200 });
@@ -381,7 +384,7 @@ describe('nightly digest stats', () => {
 
             expect(result).toEqual({
                 dome_open: false,
-                exposure_count: 95
+                exposure_count: 65
             });
         });
     
@@ -422,9 +425,9 @@ describe('nightly digest stats', () => {
         it('iterates through each day and accumulates exposure counts', async () => {
             // Mock 3 days of data
             mockedAxios.get
-                .mockResolvedValueOnce({ data: { exposures: [], exposures_count: 10 } }) // Day 1
-                .mockResolvedValueOnce({ data: { exposures: [], exposures_count: 20 } }) // Day 2
-                .mockResolvedValueOnce({ data: { exposures: [], exposures_count: 30 } }); // Day 3
+                .mockResolvedValueOnce({ data: { exposures: [], exposures_count: 10, on_sky_exposures_count: 5 } }) // Day 1
+                .mockResolvedValueOnce({ data: { exposures: [], exposures_count: 20, on_sky_exposures_count: 10 } }) // Day 2
+                .mockResolvedValueOnce({ data: { exposures: [], exposures_count: 30, on_sky_exposures_count: 15 } }); // Day 3
             
             mockedAxios.post.mockResolvedValue({ status: 200 });
     
@@ -435,7 +438,7 @@ describe('nightly digest stats', () => {
     
             // Verification
             expect(mockedAxios.get).toHaveBeenCalledTimes(3);
-            expect(result.exposure_count).toBe(60); // 10 + 20 + 30
+            expect(result.exposure_count).toBe(30); // 5 + 10 + 15
             
             // Verify last call dates
             expect(mockedAxios.get).toHaveBeenLastCalledWith(
@@ -460,9 +463,9 @@ describe('nightly digest stats', () => {
             const consoleSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
             
             mockedAxios.get
-                .mockResolvedValueOnce({ data: { exposures: [], exposures_count: 10 } }) // Day 1
+                .mockResolvedValueOnce({ data: { exposures: [], exposures_count: 10, on_sky_exposures_count: 5 } }) // Day 1
                 .mockRejectedValueOnce(new Error("API Timeout"))                       // Day 2 (Failure)
-                .mockResolvedValueOnce({ data: { exposures: [], exposures_count: 5 } });  // Day 3
+                .mockResolvedValueOnce({ data: { exposures: [], exposures_count: 5, on_sky_exposures_count: 3 } });  // Day 3
             
             mockedAxios.post.mockResolvedValue({ status: 200 });
         
@@ -474,8 +477,8 @@ describe('nightly digest stats', () => {
             // The loop should have attempted all 3 days despite the failure on day 2
             expect(mockedAxios.get).toHaveBeenCalledTimes(3);
         
-            // The result should only contain the sum of the successful days (10 + 5)
-            expect(result.exposure_count).toBe(15);
+            // The result should only contain the sum of the successful days (5 + 3)
+            expect(result.exposure_count).toBe(8);
         
             // Check that console.error was called for the specific day that failed
             expect(consoleSpy).toHaveBeenCalledWith(

@@ -30,6 +30,7 @@ export interface SimpleExposure {
 export interface NightlyDigestBaseResponse {
     exposures: NightlyDigestExposure[] | SimpleExposure[];
     exposures_count: number | null;
+    on_sky_exposures_count: number | null;
     [key: string]: unknown[] | unknown;
 }
 
