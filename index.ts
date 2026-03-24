@@ -144,8 +144,13 @@ export async function nightlyDigestStatsHandler (req: ff.Request, res: ff.Respon
     }
     if (req.path == "/current-exposure-count") {
         const cacheMode = 'current';
-        
+
         let result = undefined;
+        if (startDate < config.params.SURVEY_START_DATE) {
+            console.info("Survey has not started yet. Skipping");
+            return res.json(result);
+        }
+        
         result = await processStats(config, startDate, endDate, mode, cacheMode);
         return res.json(result);
     }
