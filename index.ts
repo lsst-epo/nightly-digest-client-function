@@ -2,7 +2,6 @@ import 'dotenv/config'
 import * as ff from '@google-cloud/functions-framework';
 import axios from "axios";
 import { NightlyDigestBaseResponse, NightlyDigestParams, CleanedNightlyStats, Config } from './types';
-import { NextFunction } from 'express';
 import { getConfig, utcOffset, formatDate, parseYYYYMMDD, isNextDay} from './utils';
 
 export async function cacheResult(config: Config, params: string | NightlyDigestParams, data: CleanedNightlyStats | NightlyDigestBaseResponse, startDate?: string, mode: string = 'current') {
@@ -90,7 +89,7 @@ export async function reaccumulateExposures(config: Config, surveyStartDateStr: 
     let currentDate = parseYYYYMMDD(surveyStartDateStr);
     const endDate = parseYYYYMMDD(endDateStr);
 
-    let cleanedResult = {
+    const cleanedResult = {
         dome_open: null,
         exposure_count: 0
     } as CleanedNightlyStats;
@@ -110,7 +109,6 @@ export async function reaccumulateExposures(config: Config, surveyStartDateStr: 
                 'daily'
             );
 
-            cleanedResult['dome_open'] = cleanedResult['dome_open']; 
             cleanedResult['exposure_count'] = Number(cleanedResult['exposure_count']) + Number(lastResult['exposure_count']); // each component should be guaranteed to default to 0
             
         } catch (error) {
@@ -123,8 +121,6 @@ export async function reaccumulateExposures(config: Config, surveyStartDateStr: 
 
 export async function nightlyDigestStatsHandler (req: ff.Request, res: ff.Response) {
     const config = getConfig();
-
-    // check auth
     const authHeader = req.headers.authorization;
     const BEARER_TOKEN = config.tokens.AUTH_TOKEN;
 
@@ -146,10 +142,6 @@ export async function nightlyDigestStatsHandler (req: ff.Request, res: ff.Respon
         const cacheMode = 'current';
 
         let result = undefined;
-        if (startDate < config.params.SURVEY_START_DATE) {
-            console.info("Survey has not started yet. Skipping");
-            return res.json(result);
-        }
         
         result = await processStats(config, startDate, endDate, mode, cacheMode);
         return res.json(result);
