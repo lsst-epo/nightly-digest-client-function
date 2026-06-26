@@ -34,12 +34,20 @@ export async function cacheResult(config: Config, params: string | NightlyDigest
 
 // get last exposure along with exposure_count
 export function extractCurrent(data: NightlyDigestBaseResponse) {
-    const { exposures, on_sky_exposures_count: exposuresCount } = data; // exposures_count is all exposures, on_sky_exposures_count is the more relevant count 
+    const { exposures, on_sky_exposures_count: exposuresCount, obs_end } = data; // exposures_count is all exposures, on_sky_exposures_count is the more relevant count 
     const lastExposure = exposures.length > 0 ? exposures[exposures.length - 1] : null;
+    
+    // Sometimes the dome was closed _after_ the last exposure. If `domeAutoCloseLimitMS` hours have passed since obs_end we should report the dome is closed.
+    const now = new Date();
+    // obs_end is a date string without a set timezone. Concatinating "Z" will force Date() to parse this as UTC-0.
+    const obsEnd = new Date(obs_end + "Z");
+    const domeAutoCloseLimitMS = 2 * 60 * 60 * 1000; // 2 Hours
+    const reportDomeIsClosed = (now.getTime() - obsEnd.getTime()) > domeAutoCloseLimitMS;
 
+    
     return {
         last_exposure: lastExposure,
-        last_can_see_sky: lastExposure?.can_see_sky ?? null,
+        last_can_see_sky: reportDomeIsClosed ? false : lastExposure?.can_see_sky ?? null,
         exposures_count: exposuresCount ?? 0
     }
 }
