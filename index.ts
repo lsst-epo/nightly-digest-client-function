@@ -86,6 +86,18 @@ export async function processStats(config: Config, startDate: string, endDate: s
         exposure_count: currentData.exposures_count // guaranteed to default to 0, not null via extractCurrent()
     } as CleanedNightlyStats;
 
+    /**
+     * Sometimes, after the observation period, the nightly digest API does not send an obs_end
+     * which results in the dome staying open past the auto close cut off defined below.
+     * As a temporary fix, Clare decided we should override any evaluated status and just report the dome as "closed" between 8am and 5pm Chile time.
+     * 8am Chile = 12 UTC
+     * 5pm Chile = 21 UTC
+    */
+    const now = new Date();
+    if (now.getUTCHours() > 12 && now.getUTCHours() < 21 ) {
+        cleanedResult.dome_open = false; 
+    }
+
     const bucketDate = isNextDay(startDate, endDate) ? startDate : undefined;
 
     await cacheResult(config, mode, cleanedResult, bucketDate, cacheMode); 
