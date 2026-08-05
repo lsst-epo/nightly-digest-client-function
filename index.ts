@@ -2,7 +2,7 @@ import 'dotenv/config'
 import * as ff from '@google-cloud/functions-framework';
 import axios from "axios";
 import { NightlyDigestBaseResponse, NightlyDigestParams, CleanedNightlyStats, Config } from './types';
-import { getConfig, utcOffset, formatDate, parseYYYYMMDD, isNextDay} from './utils';
+import { getConfig, utcOffset, shiftToNewDayBoundary, formatDate, parseYYYYMMDD, isNextDay} from './utils';
 
 export async function cacheResult(config: Config, params: string | NightlyDigestParams, data: CleanedNightlyStats | NightlyDigestBaseResponse, startDate?: string, mode: string = 'current') {
     const endpoint = config.endpoints.API_ENDPOINT;
@@ -153,8 +153,17 @@ export async function nightlyDigestStatsHandler (req: ff.Request, res: ff.Respon
     }
 
     const mode = (config.params.MODE || req.query.mode || 'current') as string; // probably don't need this right now, but could be useful in the future if we want to expand beyond just getting current
-    const startDate = (config.params.DAY_OBS_START || req.query.startDate || formatDate(utcOffset(new Date(), -1)) ) as string;
-    const endDate = (config.params.DAY_OBS_END || req.query.endDate || formatDate(utcOffset(new Date(), 0)) ) as string;
+    
+    /**
+     * If a startDate and/or endDate are not provided...
+     * To determine which "day" to base our startDate and endDate off of,
+     * we need to shift the current timestamp based on the UTC hour that we want to start a new conceptual day
+     * then we can use the shifted "now" to calculate our startDate and endDate
+     */
+    const shiftedNow = shiftToNewDayBoundary(new Date(), 23);
+    const startDate = (config.params.DAY_OBS_START || req.query.startDate || formatDate(utcOffset(shiftedNow, -1)) ) as string;
+    const endDate = (config.params.DAY_OBS_END || req.query.endDate || formatDate(utcOffset(shiftedNow, 0)) ) as string;
+
     if (req.path == "/") {
         return res.status(200).send("🐈‍⬛"); 
     }

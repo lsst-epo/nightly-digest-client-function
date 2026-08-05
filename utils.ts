@@ -8,6 +8,10 @@ export const utcOffset = (date: Date, offset: number = 0): Date => {
     return newDate;
 }
 
+export const shiftToNewDayBoundary = (date: Date, boundaryUTCHour: number): Date => {
+    const shiftMs = (24 - boundaryUTCHour) * 60 * 60 * 1000;
+    return new Date(date.getTime() + shiftMs);
+};
 
 export const formatDate = (date: Date): string => {
     const yyyy = date.getUTCFullYear();
