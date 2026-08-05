@@ -1,8 +1,9 @@
-import { 
-    getFormattedDate, 
-    utcOffset, 
-    formatDate, 
-    parseYYYYMMDD, 
+import {
+    getFormattedDate,
+    utcOffset,
+    shiftToNewDayBoundary,
+    formatDate,
+    parseYYYYMMDD,
     isNextDay,
     getConfig
 } from './utils';
@@ -45,6 +46,32 @@ describe('date utils', () => {
             const originalTime = start.getTime();
             utcOffset(start, 5);
             expect(start.getTime()).toBe(originalTime);
+        });
+    });
+
+    describe('shiftToNewDayBoundary (currently testing boundary hour set to 23)', () => {
+        it('should keep the same day well before the boundary hour', () => {
+            const date = new Date('2026-07-14T19:00:00Z');
+            const result = shiftToNewDayBoundary(date, 23);
+            expect(formatDate(result)).toBe('20260714');
+        });
+
+        it('should keep the same day just before the boundary hour', () => {
+            const date = new Date('2026-07-14T22:59:00Z');
+            const result = shiftToNewDayBoundary(date, 23);
+            expect(formatDate(result)).toBe('20260714');
+        });
+
+        it('should roll over to the next day exactly at the boundary hour', () => {
+            const date = new Date('2026-07-14T23:00:00Z');
+            const result = shiftToNewDayBoundary(date, 23);
+            expect(formatDate(result)).toBe('20260715');
+        });
+
+        it('should stay on the new day well after the boundary hour', () => {
+            const date = new Date('2026-07-15T02:00:00Z');
+            const result = shiftToNewDayBoundary(date, 23);
+            expect(formatDate(result)).toBe('20260715');
         });
     });
 
